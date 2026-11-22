@@ -1,0 +1,5 @@
+# Placeholder for the future local dev stack. Add only synthetic-data services
+# after versions, health checks, networks, volumes, and profiles are validated.
+name: sumak-dev
+
+services: {}

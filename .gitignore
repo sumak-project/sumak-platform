@@ -1,0 +1,40 @@
+# Local architecture source; intentionally never published from this repository.
+docs/
+
+# Gradle/JVM
+.gradle/
+**/build/
+*.class
+
+# Node/client tooling
+node_modules/
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Rust
+target/
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Terraform local state and plans
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# IDE/OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
