@@ -1,8 +1,37 @@
 # SUMAK repository guidance
 
+## Workflow rules (Jira + Git) — mandatory
+
+All technical artifacts (tickets, branches, commits, PRs, code) MUST be in English.
+
+1. Jira + Git automation flow:
+   - When an issue is created in Jira without an assignee, auto-assign it to me (the sole developer).
+   - While a ticket is in Backlog / To Do, NO Git branch is created.
+   - Only when the ticket moves to In Progress, create the working branch from `origin/dev`.
+   - When a Pull Request targeting `dev` is opened with the issue key in its title/body, the Jira issue must move automatically to In Review.
+   - When the PR is merged into `dev`, the Jira issue must move to Done and the remote branch must be deleted automatically.
+
+2. Naming conventions (100% English):
+   - Branches: `<type>/<ISSUE-KEY>-<short-kebab-case>` (types: feat, fix, chore, refactor, test, docs, ci). Example: `feat/SUMAK-12-identity-domain`.
+   - Commits (Conventional Commits): `<type>(<scope>): <imperative summary in English> [<ISSUE-KEY>]`. Example: `feat(identity): add user aggregate [SUMAK-12]`.
+   - Pull Requests: same format as the main commit, always targeting `dev` at this stage.
+
+3. Scope and safety best practices in Git:
+   - Forbidden: giant commits/PRs with thousands of lines or mixed functionalities. Each branch, commit and PR must resolve a single, bounded objective.
+   - Before creating a new branch or starting a task, run `git fetch --prune origin` to refresh remote refs and remove deleted branches, then create the branch cleanly from `origin/dev` (avoid automatic `git pull` on branches with uncommitted changes).
+- Synchronization rule (mandatory): before starting any new task or creating a new branch after a merge, sync the local dev branch by running:
+  ```
+  git checkout dev && git fetch --prune origin && git reset --hard origin/dev
+  ```
+  First verify with `git status` that there are no uncommitted local changes. Never auto-pull on a dirty working tree.
+   - Always verify `git status` and `git diff` before committing; never blind `git add .` and never include `docs/` or secrets.
+
 ## Git and environments
 
+- Repository remote: `https://github.com/sumak-project/sumak-platform.git` (org `sumak-project`, repo `sumak-platform`). Default branch is `dev`. Authenticated via the GitHub MCP server token configured in `~/.config/opencode/opencode.json` (`GITHUB_PAT`).
 - `dev` is the only working branch and active environment for now. Do not create, configure, merge into, or deploy `qa`/`prod`; those remain reserved until the required tests and validations exist.
+- When the user says "sube a git" / "upload to git", push the current working tree to `origin dev` of `sumak-project/sumak-platform` (commit pending changes first if needed, respecting `.gitignore` which excludes `docs/`). Use the token above if git credentials are missing.">
+
 - Do not run `git init`, add remotes, create the first commit, or perform the first push. The remote already exists with `dev` as its main branch; the user owns repository initialization and first publication.
 - The repository is now only an initial monorepo skeleton. There is no Gradle Wrapper or implemented application yet; do not report builds, deployments, tests, capacity, security, or AWS resources as implemented or passing.
 - Commands in `docs/09_DevOps/01_Monorepo_Gradle.md` describe the target monorepo and remain non-runnable until the corresponding toolchains and modules are implemented.
