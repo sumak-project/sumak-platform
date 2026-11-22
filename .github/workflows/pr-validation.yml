@@ -1,0 +1,31 @@
+name: PR Validation
+
+on:
+  pull_request:
+    branches: [dev]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate branch name and PR title
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          # Validate branch name: <type>/SCRUM-<number>-<kebab-case>
+          # types: feat, fix, chore, refactor, test, docs, ci
+          if ! echo "$BRANCH_NAME" | grep -Eq '^(feat|fix|chore|refactor|test|docs|ci)/SCRUM-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'; then
+            echo "::error::Branch name '$BRANCH_NAME' does not follow <type>/SCRUM-<number>-<kebab-case> (types: feat, fix, chore, refactor, test, docs, ci)"
+            exit 1
+          fi
+          echo "Branch name OK: $BRANCH_NAME"
+
+          # Validate PR title: <type>(<scope>): <description> [SCRUM-<number>]
+          if ! echo "$PR_TITLE" | grep -Eq '^(feat|fix|chore|refactor|test|docs|ci)\([a-z0-9_-]+\): .+ \[SCRUM-[0-9]+\]$'; then
+            echo "::error::PR title '$PR_TITLE' does not follow Conventional Commits with Jira key: <type>(<scope>): <description> [SCRUM-<number>]"
+            exit 1
+          fi
+          echo "PR title OK: $PR_TITLE"
