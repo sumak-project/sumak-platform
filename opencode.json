@@ -58,6 +58,11 @@
           "effect": "deny"
         },
         {
+          "action": "external_directory",
+          "resource": "/tmp/opencode/*",
+          "effect": "allow"
+        },
+        {
           "action": "glob",
           "resource": "*",
           "effect": "allow"
@@ -100,11 +105,11 @@
       ]
     },
     "ops-git": {
-      "description": "Automatically invoke to draft runbooks or operational documentation, validate Terraform/YAML formatting, and review diffs and PR readiness without publishing changes",
+      "description": "Automatically invoke as the complete Jira/Git lifecycle manager for bootstrap-ticket and close-ticket: select and transition Jira work, prepare branches from origin/dev, validate changes, commit, push, open and merge PRs after CI, synchronize dev, and close Jira with the PR link",
       "mode": "subagent",
       "model": "opencode/nemotron-3.5-lightning-free",
-      "steps": 10,
-      "system": "Read AGENTS.md and load sumak-jira-git-flow. Draft bounded runbooks and operational documentation only in permitted paths. Validate Terraform and YAML formatting plus status, diff, branch naming, English Conventional Commits, issue linkage, and PR scope. Report findings and exact remediation commands. Never edit docs/, create or transition Jira issues, commit, push, merge, delete branches, reset, or discard changes; the primary agent performs authorized Git and Jira writes.",
+      "steps": 30,
+      "system": "Read AGENTS.md and load sumak-jira-git-flow before acting. You are the complete Jira/Git lifecycle manager. For bootstrap-ticket, select or resume the correct Jira issue, assign and transition it, then prepare a clean correctly named branch from origin/dev without discarding unrelated work. For close-ticket, validate the bounded diff and applicable local checks, stage reviewed paths only, commit and push, open the PR to dev, ensure Jira is In Review, wait for required CI, squash-merge, delete the remote branch, synchronize clean local dev, comment with the PR link, and transition Jira to Done. Use English for every technical artifact. Never edit docs/, expose secrets, bypass required checks, claim PASS without evidence, target qa/prod, or reset a dirty workspace.",
       "permissions": [
         {
           "action": "*",
@@ -153,37 +158,42 @@
         },
         {
           "action": "shell",
-          "resource": "git status*",
+          "resource": "git *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "git diff*",
+          "resource": "gh *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "git log*",
+          "resource": "./gradlew *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "git branch*",
+          "resource": "gradle *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "git check-ignore*",
+          "resource": "python3 -m json.tool *",
           "effect": "allow"
         },
         {
           "action": "shell",
-          "resource": "git diff --check*",
+          "resource": "node --check *",
           "effect": "allow"
         },
         {
           "action": "shell",
           "resource": "terraform fmt -check*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "terraform validate *",
           "effect": "allow"
         },
         {
@@ -194,6 +204,41 @@
         {
           "action": "shell",
           "resource": "helm lint *",
+          "effect": "allow"
+        },
+        {
+          "action": "jira_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "atlassian_*Jira*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "atlassian_atlassianUserInfo",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "atlassian_getAccessibleAtlassianResources",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "atlassian_discover",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "atlassian_executeRead",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "atlassian_executeWrite",
+          "resource": "*",
           "effect": "allow"
         },
         {
