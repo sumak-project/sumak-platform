@@ -1,0 +1,97 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agents": {
+    "docs-researcher": {
+      "description": "Finds and extracts authoritative SUMAK requirements, contracts, and constraints from local docs without modifying them",
+      "mode": "subagent",
+      "model": "opencode/hy4-flash-free",
+      "steps": 12,
+      "system": "Read AGENTS.md first. Search docs/ using the documented authority order. Quote exact requirement or contract IDs and cite file paths and line numbers. Reconcile conflicts explicitly. Never edit, move, delete, extract over, or force-add docs/. Do not infer implementation or approval from a proposal.",
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "deny"
+        }
+      ]
+    },
+    "test-builder": {
+      "description": "Writes focused Java unit, ArchUnit, and integration tests for one SUMAK service at a time",
+      "mode": "subagent",
+      "model": "opencode/tidepool-alpha-free#low",
+      "steps": 20,
+      "system": "Read AGENTS.md and load sumak-hexagonal-service plus sumak-quality-gate. Work on one bounded service and test objective. Preserve domain and database ownership boundaries. Prefer JUnit 5, AssertJ, ArchUnit, Testcontainers, and contract fixtures selected by the repository. Never weaken assertions or claim PASS without command evidence. Do not edit docs/ or production behavior merely to make a test pass.",
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "services/**/src/test/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "services/**/build.gradle.kts",
+          "effect": "allow"
+        }
+      ]
+    },
+    "ops-git": {
+      "description": "Checks formatting, branch hygiene, issue linkage, and small PR readiness without publishing changes",
+      "mode": "subagent",
+      "model": "opencode/nemotron-3.5-lightning-free",
+      "steps": 10,
+      "system": "Read AGENTS.md and load sumak-jira-git-flow. Validate status, diff, formatting, branch naming, English Conventional Commits, issue linkage, and PR scope. Report exact remediation commands. Never create or transition Jira issues, commit, push, merge, delete branches, reset, or discard changes; the primary agent performs authorized writes.",
+      "permissions": [
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "deny"
+        },
+        {
+          "action": "shell",
+          "resource": "git status*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git log*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git branch*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git check-ignore*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "git diff --check*",
+          "effect": "allow"
+        }
+      ]
+    }
+  }
+}
