@@ -8,6 +8,8 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
+      - name: Check out the reviewed commit
+        uses: actions/checkout@v4
       - name: Validate branch name and PR title
         env:
           BRANCH_NAME: ${{ github.head_ref }}
@@ -29,3 +31,5 @@ jobs:
             exit 1
           fi
           echo "PR title OK: $PR_TITLE"
+      - name: Test quality gate policy
+        run: python3 -m unittest discover -s tests -v
