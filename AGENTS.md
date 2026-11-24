@@ -30,13 +30,25 @@ All technical artifacts (tickets, branches, commits, PRs, code) MUST be in Engli
 
 Classify every user turn by its requested work before taking action:
 
-- **Git, Jira, and pull request operations:** for branch creation, ticket assignment or transitions, commits, pushes, and opening or merging pull requests, the active agent executes the work directly without delegation and follows `/sumak-jira-git-flow`.
+- **Git, Jira, and pull request operations:** delegate ticket selection, assignment, transitions, branch preparation, commits, pushes, pull requests, CI waiting, merges, branch cleanup, and Jira closure to `@ops-git`, which MUST follow `/sumak-jira-git-flow`. This delegation replaces direct execution by the primary agent for those lifecycle operations; the primary agent remains responsible for orchestration and final verification.
 - **Architecture and implementation work:** for architecture, Java code, Terraform, AWS infrastructure, or quality tasks, the active agent acts as architect and coordinator. It MUST delegate the applicable work below automatically before editing:
   - Delegate every read or analysis of `docs/`, and every extensive repository exploration, to `@docs-researcher`. Consume only its compact summary of authoritative contracts, constraints, and acceptance criteria.
   - Delegate every creation or update of Unit, ArchUnit, Integration, Contract, or Security tests to `@test-builder`, which MUST follow `/sumak-quality-gate`.
-  - Delegate runbook and operational documentation drafting, Terraform or YAML format validation, and diff review to `@ops-git`.
+  - Delegate runbook and operational documentation drafting, Terraform or YAML format validation, diff review, and PR readiness to `@ops-git`.
 
 The primary agent reserves its context and tools for architecture decisions, core domain and contract design, critical AWS MCP calls, integration of delegated results, and final review. Delegation does not transfer responsibility for the final result, and subagents must remain within their configured read, edit, and command permissions.
+
+## Autopilot by Ticket
+
+When the user asks `ejecuta el siguiente ticket` or `continúa con la épica X`, the primary agent MUST orchestrate the following sequence automatically. Do not ask for confirmation between stages unless a safety blocker, missing authorization, failed required check, or ambiguous epic prevents progress.
+
+1. Invoke `@ops-git` with `bootstrap-ticket` to find an existing In Progress issue or select the next issue from the requested epic or prioritized backlog, assign it when unassigned, transition it to In Progress, and prepare a clean workspace on a correctly named branch from `origin/dev`.
+2. Invoke `@docs-researcher` to read `docs/` and return the authoritative contracts, constraints, and acceptance criteria for that ticket.
+3. The primary agent implements the bounded core change, including application code, Terraform, or policy files as applicable, while integrating the research summary.
+4. Invoke `@test-builder` for applicable Unit, ArchUnit, Integration, Contract, or Security tests and mandatory quality-gate evidence. If no test category applies, record the reason explicitly instead of inventing a passing result.
+5. Invoke `@ops-git` with `close-ticket` to validate the diff and local checks, create the English conventional commit, push, open the PR to `dev`, wait for required CI, squash-merge, delete the remote branch, synchronize local `dev`, add the PR link to Jira, and transition the issue to Done.
+
+Each stage must receive the issue key and the relevant output of the previous stage. Stop the sequence on a dirty-worktree conflict, failed mandatory check, CI failure, merge conflict, expired credentials, or Jira/GitHub authorization failure; report the blocker without bypassing safeguards.
 
 ## Git and environments
 
