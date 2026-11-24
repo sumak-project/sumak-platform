@@ -26,6 +26,18 @@ All technical artifacts (tickets, branches, commits, PRs, code) MUST be in Engli
   First verify with `git status` that there are no uncommitted local changes. Never auto-pull on a dirty working tree.
    - Always verify `git status` and `git diff` before committing; never blind `git add .` and never include `docs/` or secrets.
 
+## Subagent Delegation Policy
+
+Classify every user turn by its requested work before taking action:
+
+- **Git, Jira, and pull request operations:** for branch creation, ticket assignment or transitions, commits, pushes, and opening or merging pull requests, the active agent executes the work directly without delegation and follows `/sumak-jira-git-flow`.
+- **Architecture and implementation work:** for architecture, Java code, Terraform, AWS infrastructure, or quality tasks, the active agent acts as architect and coordinator. It MUST delegate the applicable work below automatically before editing:
+  - Delegate every read or analysis of `docs/`, and every extensive repository exploration, to `@docs-researcher`. Consume only its compact summary of authoritative contracts, constraints, and acceptance criteria.
+  - Delegate every creation or update of Unit, ArchUnit, Integration, Contract, or Security tests to `@test-builder`, which MUST follow `/sumak-quality-gate`.
+  - Delegate runbook and operational documentation drafting, Terraform or YAML format validation, and diff review to `@ops-git`.
+
+The primary agent reserves its context and tools for architecture decisions, core domain and contract design, critical AWS MCP calls, integration of delegated results, and final review. Delegation does not transfer responsibility for the final result, and subagents must remain within their configured read, edit, and command permissions.
+
 ## Git and environments
 
 - Repository remote: `https://github.com/sumak-project/sumak-platform.git` (org `sumak-project`, repo `sumak-platform`). Default branch is `dev`. Authenticated via the GitHub MCP server token configured in `~/.config/opencode/opencode.json` (`GITHUB_PAT`).
