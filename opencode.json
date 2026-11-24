@@ -2,35 +2,70 @@
   "$schema": "https://opencode.ai/config.json",
   "agents": {
     "docs-researcher": {
-      "description": "Finds and extracts authoritative SUMAK requirements, contracts, and constraints from local docs without modifying them",
+      "description": "Automatically invoke before primary edits for any docs/ reading or analysis, or extensive repository exploration; returns only a compact summary of authoritative contracts, limits, and acceptance criteria",
       "mode": "subagent",
       "model": "opencode/hy4-flash-free",
       "steps": 12,
-      "system": "Read AGENTS.md first. Search docs/ using the documented authority order. Quote exact requirement or contract IDs and cite file paths and line numbers. Reconcile conflicts explicitly. Never edit, move, delete, extract over, or force-add docs/. Do not infer implementation or approval from a proposal.",
+      "system": "Read AGENTS.md first. Search docs/ using the documented authority order and return only a compact summary of authoritative contracts, limits, and acceptance criteria. Quote exact requirement or contract IDs and cite file paths and line numbers. Reconcile conflicts explicitly. Never edit, move, delete, extract over, or force-add docs/. Do not infer implementation or approval from a proposal.",
       "permissions": [
         {
-          "action": "edit",
+          "action": "*",
           "resource": "*",
           "effect": "deny"
         },
         {
-          "action": "shell",
+          "action": "read",
+          "resource": "AGENTS.md",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "docs/**",
+          "effect": "allow"
+        },
+        {
+          "action": "glob",
           "resource": "*",
-          "effect": "deny"
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
         }
       ]
     },
     "test-builder": {
-      "description": "Writes focused Java unit, ArchUnit, and integration tests for one SUMAK service at a time",
+      "description": "Automatically invoke before primary edits whenever Unit, ArchUnit, Integration, Contract, or Security tests are created or updated; follows /sumak-quality-gate for one bounded SUMAK service",
       "mode": "subagent",
       "model": "opencode/tidepool-alpha-free#low",
       "steps": 20,
       "system": "Read AGENTS.md and load sumak-hexagonal-service plus sumak-quality-gate. Work on one bounded service and test objective. Preserve domain and database ownership boundaries. Prefer JUnit 5, AssertJ, ArchUnit, Testcontainers, and contract fixtures selected by the repository. Never weaken assertions or claim PASS without command evidence. Do not edit docs/ or production behavior merely to make a test pass.",
       "permissions": [
         {
-          "action": "edit",
+          "action": "*",
           "resource": "*",
           "effect": "deny"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*.env*",
+          "effect": "deny"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
         },
         {
           "action": "edit",
@@ -41,25 +76,80 @@
           "action": "edit",
           "resource": "services/**/build.gradle.kts",
           "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "./gradlew *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "gradle *",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "sumak-hexagonal-service",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "sumak-quality-gate",
+          "effect": "allow"
         }
       ]
     },
     "ops-git": {
-      "description": "Checks formatting, branch hygiene, issue linkage, and small PR readiness without publishing changes",
+      "description": "Automatically invoke to draft runbooks or operational documentation, validate Terraform/YAML formatting, and review diffs and PR readiness without publishing changes",
       "mode": "subagent",
       "model": "opencode/nemotron-3.5-lightning-free",
       "steps": 10,
-      "system": "Read AGENTS.md and load sumak-jira-git-flow. Validate status, diff, formatting, branch naming, English Conventional Commits, issue linkage, and PR scope. Report exact remediation commands. Never create or transition Jira issues, commit, push, merge, delete branches, reset, or discard changes; the primary agent performs authorized writes.",
+      "system": "Read AGENTS.md and load sumak-jira-git-flow. Draft bounded runbooks and operational documentation only in permitted paths. Validate Terraform and YAML formatting plus status, diff, branch naming, English Conventional Commits, issue linkage, and PR scope. Report findings and exact remediation commands. Never edit docs/, create or transition Jira issues, commit, push, merge, delete branches, reset, or discard changes; the primary agent performs authorized Git and Jira writes.",
       "permissions": [
         {
-          "action": "edit",
+          "action": "*",
           "resource": "*",
           "effect": "deny"
         },
         {
-          "action": "shell",
+          "action": "read",
           "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*.env*",
           "effect": "deny"
+        },
+        {
+          "action": "glob",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "grep",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "README.md",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "runbooks/**",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "infra/**/*.md",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": ".github/**/*.md",
+          "effect": "allow"
         },
         {
           "action": "shell",
@@ -89,6 +179,26 @@
         {
           "action": "shell",
           "resource": "git diff --check*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "terraform fmt -check*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "yamllint *",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "helm lint *",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "sumak-jira-git-flow",
           "effect": "allow"
         }
       ]
