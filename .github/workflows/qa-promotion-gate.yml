@@ -1,0 +1,28 @@
+name: QA Promotion Gate
+
+on:
+  workflow_call:
+    inputs:
+      evidence-path:
+        description: Versioned DEV-to-QA promotion evidence JSON
+        required: true
+        type: string
+  workflow_dispatch:
+    inputs:
+      evidence-path:
+        description: Versioned DEV-to-QA promotion evidence JSON
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  mandatory-quality-gates:
+    name: Mandatory quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the reviewed commit
+        uses: actions/checkout@v4
+      - name: Validate promotion evidence
+        run: python3 config/quality-gates/validate_promotion.py "${{ inputs.evidence-path }}"
