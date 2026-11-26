@@ -4,12 +4,24 @@ on:
   pull_request:
     branches: [dev]
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the reviewed commit
         uses: actions/checkout@v4
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@v4
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
       - name: Validate branch name and PR title
         env:
           BRANCH_NAME: ${{ github.head_ref }}
@@ -17,19 +29,21 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Validate branch name: <type>/SCRUM-<number>-<kebab-case>
+          # Validate branch name: <type>/SUMAK-<number>-<kebab-case>
           # types: feat, fix, chore, refactor, test, docs, ci
-          if ! echo "$BRANCH_NAME" | grep -Eq '^(feat|fix|chore|refactor|test|docs|ci)/SCRUM-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'; then
-            echo "::error::Branch name '$BRANCH_NAME' does not follow <type>/SCRUM-<number>-<kebab-case> (types: feat, fix, chore, refactor, test, docs, ci)"
+          if ! echo "$BRANCH_NAME" | grep -Eq '^(feat|fix|chore|refactor|test|docs|ci)/SUMAK-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'; then
+            echo "::error::Branch name '$BRANCH_NAME' does not follow <type>/SUMAK-<number>-<kebab-case> (types: feat, fix, chore, refactor, test, docs, ci)"
             exit 1
           fi
           echo "Branch name OK: $BRANCH_NAME"
 
-          # Validate PR title: <type>(<scope>): <description> [SCRUM-<number>]
-          if ! echo "$PR_TITLE" | grep -Eq '^(feat|fix|chore|refactor|test|docs|ci)\([a-z0-9_-]+\): .+ \[SCRUM-[0-9]+\]$'; then
-            echo "::error::PR title '$PR_TITLE' does not follow Conventional Commits with Jira key: <type>(<scope>): <description> [SCRUM-<number>]"
+          # Validate PR title: <type>(<scope>): <description> [SUMAK-<number>]
+          if ! echo "$PR_TITLE" | grep -Eq '^(feat|fix|chore|refactor|test|docs|ci)\([a-z0-9_-]+\): .+ \[SUMAK-[0-9]+\]$'; then
+            echo "::error::PR title '$PR_TITLE' does not follow Conventional Commits with Jira key: <type>(<scope>): <description> [SUMAK-<number>]"
             exit 1
           fi
           echo "PR title OK: $PR_TITLE"
+      - name: Check Gradle project
+        run: ./gradlew check --no-daemon
       - name: Test quality gate policy
         run: python3 -m unittest discover -s tests -v
