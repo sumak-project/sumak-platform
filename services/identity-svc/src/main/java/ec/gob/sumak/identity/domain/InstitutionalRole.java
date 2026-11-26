@@ -1,0 +1,9 @@
+package ec.gob.sumak.identity.domain;
+
+public enum InstitutionalRole {
+    CITIZEN,
+    SUPER_ADMINISTRATOR,
+    WORKS_AND_FINANCE_ADMINISTRATOR,
+    INCIDENTS_AND_COMPLAINTS_OPERATOR,
+    SOCIAL_COMMUNICATION_AND_CITIZEN_PARTICIPATION
+}
