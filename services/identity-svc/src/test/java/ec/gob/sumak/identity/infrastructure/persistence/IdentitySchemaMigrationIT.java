@@ -44,7 +44,7 @@ class IdentitySchemaMigrationIT {
         flyway.clean(); // clean path
         var result = flyway.migrate(); // upgrade path from empty
         assertThat(result.success).isTrue();
-        assertThat(result.migrationsExecuted).isEqualTo(1);
+        assertThat(result.migrationsExecuted).isEqualTo(2);
     }
 
     @Test
@@ -102,8 +102,9 @@ class IdentitySchemaMigrationIT {
             s.execute("INSERT INTO outbox_event (id, event_type, schema_version, aggregate_ref, aggregate_version, occurred_at, payload) "
                     + "VALUES ('" + UUID.randomUUID() + "', 'IdentityLinked', 1, '" + UUID.randomUUID()
                     + "', 0, now(), '{}'::jsonb)");
-            s.execute("INSERT INTO idempotency_record (command_id, account_id, result) VALUES ('"
-                    + UUID.randomUUID() + "', '" + UUID.randomUUID() + "', '{}'::jsonb)");
+            s.execute("INSERT INTO idempotency_record "
+                    + "(scope_key, operation, command_id, request_digest, status) VALUES "
+                    + "('synthetic', 'test', '" + UUID.randomUUID() + "', repeat('a', 64), 'PENDING')");
             assertThatThrownBy(() -> s.execute(
                     "INSERT INTO outbox_event (id, event_type, schema_version, aggregate_ref, aggregate_version, occurred_at, payload) "
                             + "VALUES ('" + UUID.randomUUID() + "', 'X', 0, '" + UUID.randomUUID() + "', 0, now(), '{}'::jsonb)"))
