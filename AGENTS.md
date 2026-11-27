@@ -77,6 +77,19 @@ Each stage must receive the issue key and the relevant output of the previous st
 - Service boundaries come from `docs/03_Microservicios/01_Catalogo.md`; persistence ownership and fields come from `docs/10_Datos/<service>.md`; cross-service protocols come from `docs/11_Contratos/`.
 - Treat the 162-route API mapping as candidate/partial, not certified equivalence. `03_Trazabilidad_API_original.md` is historical; the current limitation is recorded in `06_Verificacion_API_v2_5_1_y_alcance_GraphQL.md`.
 
+## Instructor reference project
+
+- `/home/david/Documentos/microservices` is a local, instructor-provided
+  multi-technology reference project. Agents may consult its hierarchy,
+  patterns, and code when designing or implementing bounded SUMAK work.
+- The reference project is non-authoritative. SUMAK governance, requirements,
+  contracts, service and data ownership, Learner Lab constraints, and the
+  precedence rules above always prevail.
+- Reuse requires a compatibility and security review. Never copy credentials or
+  environment-specific configuration, and never treat reference behavior,
+  configuration, screenshots, or successful execution as approval or validation
+  evidence for SUMAK.
+
 ## Non-obvious constraints
 
 - Preserve evidence language: `propuesto`, `pendiente`, `NOT_RUN`, or a documented blocker is not `PASS`, approval, or implementation. A document or screenshot alone is not runtime evidence.
