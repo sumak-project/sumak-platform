@@ -28,7 +28,7 @@ services, or runtime readiness.
 With valid temporary DEV credentials:
 
 ```bash
-terraform init
+terraform init -backend-config='profile=sumak-dev'
 terraform fmt -check -recursive
 terraform validate
 terraform plan -out=scrum-33.tfplan
@@ -36,7 +36,7 @@ terraform plan -out=scrum-33.tfplan
 
 Terraform initializes the SCRUM-37 same-account encrypted, versioned S3
 backend at state key `us-east-1/dev/network/terraform.tfstate`, using native
-`use_lockfile = true` locking and the temporary `academy` profile. Remote
+`use_lockfile = true` locking and the temporary `sumak-dev` profile. Remote
 backend initialization succeeded for SCRUM-33. No state contents or credentials
 are included in this evidence.
 

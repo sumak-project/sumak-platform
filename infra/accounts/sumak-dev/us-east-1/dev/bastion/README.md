@@ -8,8 +8,9 @@ gateway or public administration path.
 
 ## Before planning
 
-1. Refresh the temporary `academy` credentials and confirm MFA where the
-   institutional identity flow supports it.
+1. Run `aws-academy sumak-dev`, then verify
+   `aws sts get-caller-identity --profile sumak-dev` resolves to the assigned
+   account in `infra/accounts-map.yaml`.
 2. Verify that `LabInstanceProfile` exists and permits the managed instance to
    register with Systems Manager. Do not create a replacement IAM role.
 3. Query the DEV account for all running EC2 instances and their regional vCPU

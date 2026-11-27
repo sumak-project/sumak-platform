@@ -13,7 +13,7 @@ and explicitly extends the reviewed list.
 
 - Region: `us-east-1`
 - Environment/account: `sumak-dev` / DEV
-- Terraform profile: `academy`
+- Terraform profile: `sumak-dev`
 - State: the SCRUM-37 encrypted, versioned same-account S3 backend
 - State key: `us-east-1/dev/ecr/terraform.tfstate`
 
@@ -27,7 +27,7 @@ QA/PROD repositories.
 Run only with valid temporary DEV credentials:
 
 ```bash
-terraform init
+terraform init -backend-config='profile=sumak-dev'
 terraform fmt -check -recursive
 terraform validate
 terraform plan -out=scrum-38.tfplan

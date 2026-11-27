@@ -8,7 +8,8 @@
 
 **Region:** `us-east-1`
 
-**Profile:** `academy`
+**Profile at validation time:** retired generic profile; current operations use
+`sumak-dev`
 
 ## Scope and PASS meaning
 
@@ -48,7 +49,7 @@ the SCP boundary rather than bypassing it.
 | Check | Result | Evidence |
 |---|---|---|
 | Caller identity | PASS | Temporary `voclabs` session resolved to account `****9751`. |
-| Remote backend init | PASS | S3 backend initialized with profile `academy`. |
+| Remote backend init | PASS | S3 backend initialized with the then-current generic profile; current operations use `sumak-dev`. |
 | Configuration validation | PASS | Terraform 1.17.2 reported `Success! The configuration is valid.` |
 | Reviewed saved plan | PASS | `1 to import, 1 to add, 0 to change, 0 to destroy`. |
 | Authorized apply | PASS | `1 imported, 1 added, 0 changed, 0 destroyed`. |

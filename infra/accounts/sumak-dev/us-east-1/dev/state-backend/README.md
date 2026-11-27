@@ -28,14 +28,16 @@ validated and does not bypass that SCP boundary.
 ---
 ## 2. Initialization Workflow
 
-Remote `terraform init` with profile academy succeeded. To run locally with valid credentials:
+Remote `terraform init` with the retired generic profile succeeded during the
+recorded evidence window. Current operations must use the named `sumak-dev`
+profile:
 
 ```bash
 # 1. Verify the temporary caller belongs to the expected DEV account
-aws sts get-caller-identity
+aws sts get-caller-identity --profile sumak-dev
 
 # 2. Initialize the backend
-terraform init
+terraform init -backend-config='profile=sumak-dev'
 
 # 3. Create and review a saved plan
 terraform plan -out=scrum-37.tfplan
@@ -44,13 +46,18 @@ terraform plan -out=scrum-37.tfplan
 terraform apply scrum-37.tfplan
 ```
 
-**Never run `terraform init` or `terraform apply` without confirmed valid AWS credentials.** In this environment, `init -backend=false` and `validate` pass; remote init with profile academy is fully supported.
+**Never run `terraform init`, `terraform plan`, or `terraform apply` without
+confirmed valid AWS credentials and an exact account match against
+`infra/accounts-map.yaml`.** In this environment, `init -backend=false` and
+`validate` pass; remote operations use profile `sumak-dev`.
 
 ---
 ## 3. Plan / Apply Approval
 
 - `terraform plan` always required before `terraform apply`.
-- Remote `plan`/`apply` completed successfully with profile academy (1 imported, 1 added, 0 changed, 0 destroyed).
+- Historical remote `plan`/`apply` completed successfully with the retired
+  generic profile (1 imported, 1 added, 0 changed, 0 destroyed). New operations
+  must use `sumak-dev`.
 - The first plan imported the bucket through `awscc_s3_bucket` and reconciled its independently managed settings. Review every action; do not assume a no-op.
 - Never bypass plan review; the S3 state bucket is infrastructure-critical.
 
@@ -118,7 +125,7 @@ terraform plan
 terraform validate              # PASS (AWS provider 6.74.0)
 terraform fmt -check -recursive # PASS
 
-# Remote Terraform operations completed successfully with profile academy:
+# Historical remote Terraform operations completed successfully:
 terraform init                  # PASS - backend init with S3
 terraform plan                  # PASS - 1 imported, 1 added, 0 changed, 0 destroy
 terraform apply                 # PASS - 1 imported, 1 added, 0 changed, 0 destroyed

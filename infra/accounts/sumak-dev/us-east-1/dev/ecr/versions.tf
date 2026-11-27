@@ -12,7 +12,7 @@ terraform {
     bucket       = "sumak-dev-tfstate-632080579751-us-east-1"
     key          = "us-east-1/dev/ecr/terraform.tfstate"
     region       = "us-east-1"
-    profile      = "academy"
+    profile      = "sumak-dev"
     encrypt      = true
     use_lockfile = true
   }

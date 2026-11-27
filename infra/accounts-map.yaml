@@ -1,0 +1,61 @@
+accounts:
+  - name: sumak-governance-security
+    profile: sumak-governance-security
+    group: Transversal
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-shared-services
+    profile: sumak-shared-services
+    group: Transversal
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-dev
+    profile: sumak-dev
+    group: DEV
+    region: us-east-1
+    role: LabRole
+    accountId: "****9751"
+  - name: sumak-dev-integration
+    profile: sumak-dev-integration
+    group: DEV
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-qa
+    profile: sumak-qa
+    group: QA
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-staging-perf
+    profile: sumak-staging-perf
+    group: QA
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-prod-core
+    profile: sumak-prod-core
+    group: PROD
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-prod-integration
+    profile: sumak-prod-integration
+    group: PROD
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-prod-dr
+    profile: sumak-prod-dr
+    group: PROD
+    region: us-west-2
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
+  - name: sumak-prod-data-ledger
+    profile: sumak-prod-data-ledger
+    group: PROD
+    region: us-east-1
+    role: LabRole
+    accountId: PENDING_ASSIGNMENT
