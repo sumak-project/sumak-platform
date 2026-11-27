@@ -18,6 +18,10 @@ All technical artifacts (tickets, branches, commits, PRs, code) MUST be in Engli
 
 3. Scope and safety best practices in Git:
    - Forbidden: giant commits/PRs with thousands of lines or mixed functionalities. Each branch, commit and PR must resolve a single, bounded objective.
+   - Enrich tickets incrementally when they are selected for implementation; do not delay delivery to rewrite the whole backlog.
+   - Before moving a selected ticket to In Progress, complete its Jira description in English with: objective and bounded scope, authoritative `docs/` references, concrete deliverables, verifiable acceptance criteria, exclusions or constraints, and expected validation evidence. Keep this documentation concise and specific to the selected task.
+   - If the existing summary is generic, use the authoritative documentation and epic context to clarify the ticket without expanding it beyond one bounded objective. Never invent requirements; record unresolved ambiguity as a blocker.
+   - Complete each implemented ticket with proportionate documentation as an explicit deliverable. Update tracked, code-adjacent documentation when behavior, contracts, setup, or operations change; otherwise record `No documentation impact` with the reason in the PR and Jira evidence. Never edit the ignored `docs/` source of truth for this purpose.
    - Before creating a new branch or starting a task, run `git fetch --prune origin` to refresh remote refs and remove deleted branches, then create the branch cleanly from `origin/dev` (avoid automatic `git pull` on branches with uncommitted changes).
 - Synchronization rule (mandatory): before starting any new task or creating a new branch after a merge, sync the local dev branch by running:
   ```
@@ -42,11 +46,12 @@ The primary agent reserves its context and tools for architecture decisions, cor
 
 When the user asks `ejecuta el siguiente ticket` or `continúa con la épica X`, the primary agent MUST orchestrate the following sequence automatically. Do not ask for confirmation between stages unless a safety blocker, missing authorization, failed required check, or ambiguous epic prevents progress.
 
-1. Invoke `@ops-git` with `bootstrap-ticket` to find an existing In Progress issue or select the next issue from the requested epic or prioritized backlog, assign it when unassigned, transition it to In Progress, and prepare a clean workspace on a correctly named branch from `origin/dev`.
-2. Invoke `@docs-researcher` to read `docs/` and return the authoritative contracts, constraints, and acceptance criteria for that ticket.
-3. The primary agent implements the bounded core change, including application code, Terraform, or policy files as applicable, while integrating the research summary.
-4. Invoke `@test-builder` for applicable Unit, ArchUnit, Integration, Contract, or Security tests and mandatory quality-gate evidence. If no test category applies, record the reason explicitly instead of inventing a passing result.
-5. Invoke `@ops-git` with `close-ticket` to validate the diff and local checks, create the English conventional commit, push, open the PR to `dev`, wait for required CI, squash-merge, delete the remote branch, synchronize local `dev`, add the PR link to Jira, and transition the issue to Done.
+1. Invoke `@ops-git` with `bootstrap-ticket` to find an existing In Progress issue or identify the next issue from the requested epic or prioritized backlog. For a To Do issue, return its epic context and current fields without transitioning it or creating a branch yet.
+2. Invoke `@docs-researcher` to read `docs/` and return the authoritative scope, constraints, deliverables, acceptance criteria, documentation references, and expected validation evidence for that ticket.
+3. Invoke `@ops-git` to update the selected Jira issue in English with the research summary, assign it when unassigned, transition it to In Progress, and prepare a clean workspace on a correctly named branch from `origin/dev`.
+4. The primary agent implements the bounded core change, including application code, Terraform, or policy files as applicable, while integrating the research summary.
+5. Invoke `@test-builder` for applicable Unit, ArchUnit, Integration, Contract, or Security tests and mandatory quality-gate evidence. If no test category applies, record the reason explicitly instead of inventing a passing result.
+6. Invoke `@ops-git` with `close-ticket` to validate the diff and local checks, create the English conventional commit, push, open the PR to `dev`, wait for required CI, squash-merge, delete the remote branch, synchronize local `dev`, add the PR link and validation evidence to Jira, and transition the issue to Done.
 
 Each stage must receive the issue key and the relevant output of the previous stage. Stop the sequence on a dirty-worktree conflict, failed mandatory check, CI failure, merge conflict, expired credentials, or Jira/GitHub authorization failure; report the blocker without bypassing safeguards.
 
