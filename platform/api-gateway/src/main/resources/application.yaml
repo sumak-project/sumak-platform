@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: api-gateway
+    version: ${APP_VERSION:unknown}
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.reactive.ReactiveUserDetailsServiceAutoConfiguration
+  cloud:
+    gateway:
+      routes: []
+
+management:
+  endpoints:
+    web:
+      base-path: /
+      exposure:
+        include: health,version
+      path-mapping:
+        health: health
+        version: version
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        live:
+          include: livenessState,ping
+        ready:
+          include: readinessState,ping
+        startup:
+          include: ping
+
+server:
+  port: 8080
+  shutdown: graceful

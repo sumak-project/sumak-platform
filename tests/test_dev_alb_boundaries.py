@@ -11,6 +11,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MODULE = REPO_ROOT / "infra/modules/alb"
 ROOT = REPO_ROOT / "infra/accounts/sumak-dev/us-east-1/dev/alb"
+GATEWAY_VALUES = REPO_ROOT / "config/dev/api-gateway-values.yaml"
 ACCOUNT_ID = "632080579751"
 
 
@@ -38,6 +39,7 @@ class DevAlbBoundaryTests(unittest.TestCase):
         cls.root = "\n".join(
             path.read_text(encoding="utf-8") for path in sorted(ROOT.glob("*.tf"))
         )
+        cls.gateway_values = GATEWAY_VALUES.read_text(encoding="utf-8")
 
     def test_root_is_pinned_to_dev_account_and_locked_s3_backend(self):
         self.assertTrue(ROOT.is_dir(), "DEV ALB root must exist")
@@ -82,6 +84,11 @@ class DevAlbBoundaryTests(unittest.TestCase):
         self.assertRegex(lbs[0], r"(?m)^\s*idle_timeout\s*=\s*var\.idle_timeout")
         self.assertRegex(target, r"(?m)^\s*deregistration_delay\s*=\s*var\.")
         self.assertRegex(target, r"(?s)health_check\s*\{[^}]*var\.")
+
+    def test_alb_health_check_matches_gateway_readiness_path(self):
+        self.assertRegex(self.module, r'(?s)variable\s+"health_check_path"\s*\{[^}]*default\s*=\s*"/health/ready"')
+        self.assertRegex(self.root, r'(?s)variable\s+"health_check_path"\s*\{[^}]*default\s*=\s*"/health/ready"')
+        self.assertRegex(self.gateway_values, r"(?m)^\s+path:\s*/health/ready\s*$")
 
     def test_forbidden_capabilities_and_unrelated_network_resources_are_absent(self):
         for forbidden in (

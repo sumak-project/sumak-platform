@@ -54,7 +54,7 @@ variable "target_protocol" {
 variable "health_check_path" {
   description = "Technical health endpoint exposed by the logical gateway."
   type        = string
-  default     = "/actuator/health/readiness"
+  default     = "/health/ready"
 }
 
 variable "health_check_interval" {
