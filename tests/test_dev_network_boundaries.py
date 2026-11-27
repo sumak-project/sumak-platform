@@ -86,9 +86,31 @@ class DevNetworkBoundariesTests(unittest.TestCase):
         for forbidden in (
             "aws_nat_gateway", "aws_eip", "aws_vpc_peering_connection",
             "aws_ec2_transit_gateway", "aws_vpn_connection", "aws_vpn_gateway",
+            "aws_vpc_peering_connection_accepter",
+            "aws_vpc_peering_connection_options",
+            "aws_ec2_transit_gateway_vpc_attachment",
+            "aws_vpn_gateway_attachment",
         ):
             self.assertEqual(blocks(self.vpc_module, rf'resource\s+"{forbidden}"'), [])
             self.assertEqual(blocks(self.root, rf'resource\s+"{forbidden}"'), [])
+        for source in (self.vpc_module, self.root):
+            routes = blocks(source, r'resource\s+"aws_route"')
+            for route in routes:
+                self.assertNotRegex(route, r"(?m)^\s*(?:nat_gateway_id|transit_gateway_id|vpc_peering_connection_id|vpn_gateway_id)\s*=")
+
+    def test_only_public_ingress_chain_can_route_to_internet(self):
+        routes = blocks(self.vpc_module, r'resource\s+"aws_route"')
+        self.assertEqual(len(routes), 1)
+        self.assertIn("aws_internet_gateway.public_ingress.id", routes[0])
+        self.assertRegex(routes[0], r'cidr_block\s*=\s*"0\.0\.0\.0/0"')
+        self.assertNotRegex(routes[0], r'(?m)^\s*ipv6_cidr_block\s*=\s*"::/0"')
+
+    def test_no_default_internet_egress_in_security_group_rules(self):
+        egress = blocks(self.sg_module, r'resource\s+"aws_vpc_security_group_egress_rule"')
+        self.assertTrue(egress, "Expected explicit least-privilege egress rules")
+        for rule in egress:
+            self.assertNotRegex(rule, r'(?m)^\s*cidr_ipv[46]\s*=\s*"(?:0\.0\.0\.0/0|::/0)"')
+            self.assertNotRegex(rule, r'(?m)^\s*ip_protocol\s*=\s*"-1"\s*$')
 
     def test_physical_az_ids_and_nine_unique_non_overlapping_network_cidrs(self):
         expected_zones = {"use1-az2", "use1-az4", "use1-az6"}
