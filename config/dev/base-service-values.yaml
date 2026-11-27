@@ -1,0 +1,6 @@
+# DEV-only example. Replace the placeholder repository and digest with a built artifact.
+image:
+  repository: example.invalid/sumak/service
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+replicaCount: 1
