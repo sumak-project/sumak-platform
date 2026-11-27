@@ -19,9 +19,11 @@ All technical artifacts (tickets, branches, commits, PRs, code) MUST be in Engli
 3. Scope and safety best practices in Git:
    - Forbidden: giant commits/PRs with thousands of lines or mixed functionalities. Each branch, commit and PR must resolve a single, bounded objective.
    - Enrich tickets incrementally when they are selected for implementation; do not delay delivery to rewrite the whole backlog.
+   - Process backlog work in epic order unless Jira priority, an explicit dependency, or a documented blocker requires a different sequence. Verify that the preceding epic is complete before starting the next one, and record any exception in the selected ticket.
    - Before moving a selected ticket to In Progress, complete its Jira description in English with: objective and bounded scope, authoritative `docs/` references, concrete deliverables, verifiable acceptance criteria, exclusions or constraints, and expected validation evidence. Keep this documentation concise and specific to the selected task.
    - If the existing summary is generic, use the authoritative documentation and epic context to clarify the ticket without expanding it beyond one bounded objective. Never invent requirements; record unresolved ambiguity as a blocker.
-   - Complete each implemented ticket with proportionate documentation as an explicit deliverable. Update tracked, code-adjacent documentation when behavior, contracts, setup, or operations change; otherwise record `No documentation impact` with the reason in the PR and Jira evidence. Never edit the ignored `docs/` source of truth for this purpose.
+   - Complete each implemented ticket with proportionate documentation as an explicit deliverable. This documentation must briefly capture the implemented behavior or decision, relevant setup or operational notes, and links to the authoritative source and validation evidence when applicable. Update tracked, code-adjacent documentation when behavior, contracts, setup, or operations change; otherwise record `No documentation impact` with the reason in the PR and Jira evidence. Never edit the ignored `docs/` source of truth for this purpose.
+   - Before closing a ticket, verify that its Jira description and completion evidence agree with the delivered scope, acceptance criteria, tests, and documentation impact. Do not retroactively rewrite unrelated backlog tickets; improve them only when they are selected.
    - Before creating a new branch or starting a task, run `git fetch --prune origin` to refresh remote refs and remove deleted branches, then create the branch cleanly from `origin/dev` (avoid automatic `git pull` on branches with uncommitted changes).
 - Synchronization rule (mandatory): before starting any new task or creating a new branch after a merge, sync the local dev branch by running:
   ```
@@ -56,6 +58,12 @@ When the user asks `ejecuta el siguiente ticket` or `continúa con la épica X`,
 Each stage must receive the issue key and the relevant output of the previous stage. Stop the sequence on a dirty-worktree conflict, failed mandatory check, CI failure, merge conflict, expired credentials, or Jira/GitHub authorization failure; report the blocker without bypassing safeguards.
 
 ## Git and environments
+
+### AWS account profiles
+
+- The generic `academy` AWS profile no longer exists. Every Terraform or AWS CLI operation must explicitly select the named destination profile with `--profile <profile>` or `var.aws_profile`. The profile must match an entry in `infra/accounts-map.yaml`.
+- Before `terraform plan`, `terraform apply`, or any AWS write, run `aws sts get-caller-identity --profile <profile>`. Confirm that the returned AccountId exactly matches the assigned `accountId` in `infra/accounts-map.yaml` and that the temporary session is still valid.
+- Stop immediately when STS fails, the account does not match, or the map says `PENDING_ASSIGNMENT`. Ask the user to run `aws-academy <profile>`, then repeat the identity check. Never copy temporary credentials, access keys, or session tokens into the repository.
 
 - Repository remote: `https://github.com/sumak-project/sumak-platform.git` (org `sumak-project`, repo `sumak-platform`). Default branch is `dev`. Authenticated via the GitHub MCP server token configured in `~/.config/opencode/opencode.json` (`GITHUB_PAT`).
 - `dev` is the only working branch and active environment for now. Do not create, configure, merge into, or deploy `qa`/`prod`; those remain reserved until the required tests and validations exist.

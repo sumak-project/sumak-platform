@@ -1,6 +1,6 @@
 provider "aws" {
   region              = "us-east-1"
-  profile             = "academy"
+  profile             = "sumak-dev"
   allowed_account_ids = ["632080579751"]
 
   default_tags {
@@ -20,7 +20,7 @@ data "terraform_remote_state" "network" {
     bucket       = "sumak-dev-tfstate-632080579751-us-east-1"
     key          = "us-east-1/dev/network/terraform.tfstate"
     region       = "us-east-1"
-    profile      = "academy"
+    profile      = "sumak-dev"
     encrypt      = true
     use_lockfile = true
   }

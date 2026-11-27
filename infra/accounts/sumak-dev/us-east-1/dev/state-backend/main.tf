@@ -1,6 +1,6 @@
 provider "aws" {
   region              = "us-east-1"
-  profile             = "academy"
+  profile             = "sumak-dev"
   allowed_account_ids = ["632080579751"]
 
   default_tags {
@@ -15,7 +15,7 @@ provider "aws" {
 
 provider "awscc" {
   region  = "us-east-1"
-  profile = "academy"
+  profile = "sumak-dev"
 }
 
 module "state_backend" {

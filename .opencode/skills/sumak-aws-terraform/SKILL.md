@@ -5,6 +5,9 @@ description: Implement SUMAK Terraform, Learner Lab networking, EKS, ECR, bastio
 
 ## Infrastructure rules
 
+- The generic `academy` profile no longer exists. Select the destination account explicitly for every Terraform or AWS CLI command with `--profile <profile>` or `var.aws_profile`; use only profiles registered in `infra/accounts-map.yaml`.
+- Before `terraform plan`, `terraform apply`, or any AWS write, run `aws sts get-caller-identity --profile <profile>`. Continue only when the temporary session is valid and the returned AccountId exactly matches the assigned `accountId` in `infra/accounts-map.yaml`.
+- If STS fails, the AccountId differs, or the account is `PENDING_ASSIGNMENT`, stop and ask the user to run `aws-academy <profile>`. Repeat STS verification afterward; never expose or persist the temporary credentials.
 - Keep reusable Terraform under `infra/modules/` and account/region/environment roots under `infra/accounts/`. Never mix DEV, QA, and PROD state, credentials, data, or secrets.
 - Use a private, versioned, encrypted S3 backend in the same account with native `use_lockfile = true` only after permissions are verified. Never commit state or plan files.
 - Build a non-overlapping VPC across three planned AZs with public ingress subnets, private application/EKS subnets, and private data subnets. Databases, brokers, caches, search, pods, and services have no public endpoints.
