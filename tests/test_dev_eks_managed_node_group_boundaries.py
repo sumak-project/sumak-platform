@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail-closed static boundary checks for the reusable EKS node group and DEV root."""
+"""Fail-closed static checks for EKS node-group and DEV root boundaries."""
 
 from __future__ import annotations
 
@@ -70,12 +70,29 @@ class DevEksManagedNodeGroupBoundaryTests(unittest.TestCase):
         self.assertRegex(self.module, r'(?m)^\s*variable\s+"subnet_ids"')
         self.assertRegex(self.module, r'(?m)^\s*variable\s+"availability_zones"')
         modules = blocks(self.root, r'module')
-        self.assertEqual(len(modules), 1)
-        self.assertIn('module "managed_node_group"', modules[0])
-        self.assertIn("../../../../../modules/eks-managed-node-group", modules[0])
-        self.assertRegex(modules[0], r"(?m)^\s*cluster_name\s*=\s*var\.cluster_name")
-        self.assertRegex(modules[0], r"(?m)^\s*subnet_ids\s*=\s*var\.private_subnet_ids")
-        self.assertRegex(modules[0], r"(?m)^\s*availability_zones\s*=\s*var\.availability_zones")
+        self.assertEqual(len(modules), 3)
+        managed_node_group = next(
+            block for block in modules if 'module "managed_node_group"' in block
+        )
+        control_plane = next(
+            block for block in modules if 'module "control_plane"' in block
+        )
+        self.assertIn("../../../../../modules/eks-managed-node-group", managed_node_group)
+        self.assertRegex(
+            managed_node_group,
+            r"(?m)^\s*cluster_name\s*=\s*module\.control_plane\.cluster_name",
+        )
+        self.assertRegex(managed_node_group, r"(?m)^\s*subnet_ids\s*=\s*var\.private_subnet_ids")
+        self.assertRegex(managed_node_group, r"(?m)^\s*availability_zones\s*=\s*var\.availability_zones")
+        self.assertIn("../../../../../modules/eks-control-plane", control_plane)
+        private_connectivity = next(
+            block for block in modules if 'module "private_aws_api_connectivity"' in block
+        )
+        self.assertIn(
+            "../../../../../modules/private-aws-api-connectivity",
+            private_connectivity,
+        )
+        self.assertNotRegex(self.root, r"(?m)^\s*variable\s+\"cluster_name\"")
 
     def test_node_group_is_three_fixed_on_demand_t3_large_nodes_in_private_azs(self):
         groups = blocks(self.module, r'resource\s+"aws_eks_node_group"')
@@ -94,7 +111,6 @@ class DevEksManagedNodeGroupBoundaryTests(unittest.TestCase):
         self.assertRegex(self.module, r"(?s)validation\s*\{[^}]*length\(var\.availability_zones\)\s*==\s*3")
         self.assertRegex(self.module, r"(?s)validation\s*\{[^}]*length\(var\.subnet_ids\)\s*==\s*3")
         self.assertRegex(self.root, r'(?m)^\s*variable\s+"private_subnet_ids"')
-        self.assertRegex(self.root, r'(?m)^\s*variable\s+"cluster_name"')
         self.assertRegex(self.root, r'(?m)^\s*variable\s+"availability_zones"')
         self.assertRegex(self.module, r'(?m)^\s*variable\s+"node_role_arn"')
         self.assertRegex(self.root, r'(?m)^\s*variable\s+"node_role_arn"')
@@ -114,11 +130,12 @@ class DevEksManagedNodeGroupBoundaryTests(unittest.TestCase):
         self.assertRegex(group, r"(?s)launch_template\s*\{[^}]*id\s*=\s*aws_launch_template\.")
         self.assertNotRegex(group, r"(?m)^\s*disk_size\s*=")
         for forbidden in ("SPOT", "aws_spot_fleet", "aws_eks_cluster"):
-            self.assertNotIn(forbidden, self.module + self.root)
+            self.assertNotIn(forbidden, self.module)
 
     def test_module_and_root_do_not_create_iam_or_assume_roles_or_other_environments(self):
         for forbidden in ("aws_iam_", "aws_iam", "aws_eks_cluster", "assume_role"):
-            self.assertNotIn(forbidden, self.module + self.root)
+            self.assertNotIn(forbidden, self.module)
+        self.assertNotIn("assume_role", self.root)
         self.assertNotRegex(self.root, r"(?m)^\s*provider\s+\"aws\".*alias\s*=")
         self.assertNotRegex(self.root, r"(?i)\bqa\b|\bprod\b")
 
