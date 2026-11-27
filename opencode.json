@@ -62,13 +62,28 @@
           "action": "opencode_read_mcp_resource",
           "resource": "*",
           "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*.env*",
+          "effect": "deny"
         }
       ]
     },
     "test-builder": {
       "description": "Automatically invoke before primary edits whenever Unit, ArchUnit, Integration, Contract, or Security tests are created or updated; follows /sumak-quality-gate for one bounded SUMAK service",
       "mode": "subagent",
-      "model": "opencode/tidepool-alpha-free#low",
+      "model": "openai/gpt-6-luna-fast#low",
       "steps": 20,
       "system": "Read AGENTS.md and load sumak-hexagonal-service plus sumak-quality-gate. Work on one bounded service and test objective. Preserve domain and database ownership boundaries. Prefer JUnit 5, AssertJ, ArchUnit, Testcontainers, and contract fixtures selected by the repository. Never weaken assertions or claim PASS without command evidence. Do not edit docs/ or production behavior merely to make a test pass.",
       "permissions": [
@@ -161,13 +176,48 @@
           "action": "opencode_read_mcp_resource",
           "resource": "*",
           "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*.env*",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "docs/**",
+          "effect": "deny"
         }
       ]
     },
     "ops-git": {
       "description": "Automatically invoke as the complete Jira/Git lifecycle manager for bootstrap-ticket and close-ticket: select and transition Jira work, prepare branches from origin/dev, validate changes, commit, push, open and merge PRs after CI, synchronize dev, and close Jira with the PR link",
       "mode": "subagent",
-      "model": "opencode/nemotron-3.5-lightning-free",
+      "model": "openai/gpt-6-luna-fast#low",
       "steps": 30,
       "system": "Read AGENTS.md and load sumak-jira-git-flow before acting. You are the complete Jira/Git lifecycle manager. For bootstrap-ticket, select or resume the correct Jira issue, assign and transition it, then prepare a clean correctly named branch from origin/dev without discarding unrelated work. For close-ticket, validate the bounded diff and applicable local checks, stage reviewed paths only, commit and push, open the PR to dev, ensure Jira is In Review, wait for required CI, squash-merge, delete the remote branch, synchronize clean local dev, comment with the PR link, and transition Jira to Done. Use English for every technical artifact. Never edit docs/, expose secrets, bypass required checks, claim PASS without evidence, target qa/prod, or reset a dirty workspace.",
       "permissions": [
@@ -300,6 +350,41 @@
           "action": "opencode_read_mcp_resource",
           "resource": "*",
           "effect": "allow"
+        },
+        {
+          "action": "external_directory",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "edit",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "shell",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "skill",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "read",
+          "resource": "*.env*",
+          "effect": "deny"
+        },
+        {
+          "action": "edit",
+          "resource": "docs/**",
+          "effect": "deny"
         }
       ]
     }
