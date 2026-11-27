@@ -59,12 +59,6 @@ Each stage must receive the issue key and the relevant output of the previous st
 
 ## Git and environments
 
-### AWS account profiles
-
-- The generic `academy` AWS profile no longer exists. Every Terraform or AWS CLI operation must explicitly select the named destination profile with `--profile <profile>` or `var.aws_profile`. The profile must match an entry in `infra/accounts-map.yaml`.
-- Before `terraform plan`, `terraform apply`, or any AWS write, run `aws sts get-caller-identity --profile <profile>`. Confirm that the returned AccountId exactly matches the assigned `accountId` in `infra/accounts-map.yaml` and that the temporary session is still valid.
-- Stop immediately when STS fails, the account does not match, or the map says `PENDING_ASSIGNMENT`. Ask the user to run `aws-academy <profile>`, then repeat the identity check. Never copy temporary credentials, access keys, or session tokens into the repository.
-
 - Repository remote: `https://github.com/sumak-project/sumak-platform.git` (org `sumak-project`, repo `sumak-platform`). Default branch is `dev`. Authenticated via the GitHub MCP server token configured in `~/.config/opencode/opencode.json` (`GITHUB_PAT`).
 - `dev` is the only working branch and active environment for now. Do not create, configure, merge into, or deploy `qa`/`prod`; those remain reserved until the required tests and validations exist.
 - When the user says "sube a git" / "upload to git", push the current working tree to `origin dev` of `sumak-project/sumak-platform` (commit pending changes first if needed, respecting `.gitignore` which excludes `docs/`). Use the token above if git credentials are missing.">
