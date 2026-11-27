@@ -32,6 +32,36 @@
           "action": "grep",
           "resource": "*",
           "effect": "allow"
+        },
+        {
+          "action": "execute",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "aws_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "confluence_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "github_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "opencode_list_mcp_resources",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "opencode_read_mcp_resource",
+          "resource": "*",
+          "effect": "allow"
         }
       ]
     },
@@ -100,6 +130,36 @@
         {
           "action": "skill",
           "resource": "sumak-quality-gate",
+          "effect": "allow"
+        },
+        {
+          "action": "execute",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "aws_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "confluence_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "github_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "opencode_list_mcp_resources",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "opencode_read_mcp_resource",
+          "resource": "*",
           "effect": "allow"
         }
       ]
@@ -207,43 +267,38 @@
           "effect": "allow"
         },
         {
-          "action": "jira_*",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
-          "action": "atlassian_*Jira*",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
-          "action": "atlassian_atlassianUserInfo",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
-          "action": "atlassian_getAccessibleAtlassianResources",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
-          "action": "atlassian_discover",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
-          "action": "atlassian_executeRead",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
-          "action": "atlassian_executeWrite",
-          "resource": "*",
-          "effect": "allow"
-        },
-        {
           "action": "skill",
           "resource": "sumak-jira-git-flow",
+          "effect": "allow"
+        },
+        {
+          "action": "execute",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "aws_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "confluence_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "github_*",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "opencode_list_mcp_resources",
+          "resource": "*",
+          "effect": "allow"
+        },
+        {
+          "action": "opencode_read_mcp_resource",
+          "resource": "*",
           "effect": "allow"
         }
       ]
