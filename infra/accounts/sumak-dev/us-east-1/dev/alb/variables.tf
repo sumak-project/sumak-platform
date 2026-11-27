@@ -19,7 +19,7 @@ variable "target_protocol" {
 variable "health_check_path" {
   description = "Logical gateway readiness path."
   type        = string
-  default     = "/actuator/health/readiness"
+  default     = "/health/ready"
 }
 
 variable "health_check_interval" {
