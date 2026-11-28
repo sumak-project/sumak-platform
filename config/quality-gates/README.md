@@ -35,3 +35,33 @@ python3 -m unittest tests.test_validate_promotion -v
 
 This policy does not deploy to QA, configure GitHub environments or branch
 protection, authorize AWS access, or enable a QA-to-PROD path.
+
+## DEV-to-QA pull request orchestration
+
+`.github/workflows/qa-promotion-gate.yml` runs only for pull requests from the
+repository `dev` branch to `qa`. Promotion pull request bodies must contain
+exactly one value for each field:
+
+```text
+Promotion-Commit: <40-character lowercase Git SHA>
+Artifact-Digest: sha256:<64 lowercase hexadecimal characters>
+```
+
+`Promotion-Commit` must equal the reviewed PR head and the current `dev` tip.
+The workflow also requires the PR base to remain the current `qa` tip. Runs are
+serialized without cancelling an in-flight approval, and both branch tips are
+checked again after protected environment approval so a stale run cannot
+authorize a merge.
+
+The gate job downloads exactly one non-expired Actions artifact named
+`promotion-evidence-<Promotion-Commit>`. That artifact must have been produced
+for the same commit and contain exactly one `promotion-evidence.json`. Every
+gate must be `PASS`, and the evidence commit and OCI digest must match the PR
+metadata. Missing, ambiguous, expired, malformed, mismatched, or non-passing
+evidence blocks the workflow.
+
+The `qa-promotion-approval` environment records the manual owner decision only
+after evidence validation. The approval job performs no merge itself: branch
+protection must require its successful check before a human-authorized merge.
+This orchestration performs no AWS, deployment, smoke-test, rollback, branch
+protection, or production operation.

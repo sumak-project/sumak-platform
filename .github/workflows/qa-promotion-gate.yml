@@ -1,35 +1,166 @@
 name: QA Promotion Gate
 
 on:
-  workflow_call:
-    inputs:
-      evidence-path:
-        description: Versioned DEV-to-QA promotion evidence JSON
-        required: true
-        type: string
-  workflow_dispatch:
-    inputs:
-      evidence-path:
-        description: Versioned DEV-to-QA promotion evidence JSON
-        required: true
-        type: string
+  pull_request:
+    branches:
+      - qa
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
 
 permissions:
+  actions: read
   contents: read
+
+concurrency:
+  group: qa-promotion-${{ github.repository }}
+  cancel-in-progress: false
 
 jobs:
   mandatory-quality-gates:
     name: Mandatory quality gates
     runs-on: ubuntu-latest
+    outputs:
+      artifact-digest: ${{ steps.metadata.outputs.artifact-digest }}
     steps:
       - name: Check out the reviewed commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
           persist-credentials: false
-      - name: Validate promotion evidence
+
+      - name: Reject invalid or stale promotion request
         env:
-          EVIDENCE_PATH: ${{ inputs.evidence-path }}
-        run: python3 config/quality-gates/validate_promotion.py "$EVIDENCE_PATH"
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          IS_DRAFT: ${{ github.event.pull_request.draft }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if [[ "$HEAD_REF" != "dev" || "$BASE_REF" != "qa" ]]; then
+            echo "::error::Promotion requires source dev and target qa"
+            exit 1
+          fi
+          if [[ "$HEAD_REPOSITORY" != "$REPOSITORY" ]]; then
+            echo "::error::Promotion source must be the repository dev branch, not a fork"
+            exit 1
+          fi
+          if [[ "$IS_DRAFT" == "true" ]]; then
+            echo "::error::Draft promotion pull requests are not eligible"
+            exit 1
+          fi
+
+          git fetch --no-tags origin dev qa
+          current_dev_sha="$(git rev-parse origin/dev)"
+          current_qa_sha="$(git rev-parse origin/qa)"
+          if [[ "$HEAD_SHA" != "$current_dev_sha" ]]; then
+            echo "::error::Stale promotion: PR head SHA is not the current dev commit"
+            exit 1
+          fi
+          if [[ "$BASE_SHA" != "$current_qa_sha" ]]; then
+            echo "::error::Stale promotion: PR base SHA is not the current qa commit"
+            exit 1
+          fi
+
+      - name: Bind reviewed PR metadata
+        id: metadata
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          body = os.environ.get("PR_BODY", "")
+          head_sha = os.environ["HEAD_SHA"]
+
+          def metadata(name: str, pattern: str) -> str:
+              matches = re.findall(
+                  rf"(?m)^{re.escape(name)}:[ \t]*({pattern})[ \t]*$",
+                  body,
+              )
+              if len(matches) != 1:
+                  raise SystemExit(
+                      f"::error::{name} must appear exactly once in the PR body"
+                  )
+              return matches[0]
+
+          promotion_commit = metadata("Promotion-Commit", r"[0-9a-f]{40}")
+          artifact_digest = metadata("Artifact-Digest", r"sha256:[0-9a-f]{64}")
+          if promotion_commit != head_sha:
+              raise SystemExit(
+                  "::error::Promotion-Commit does not match the reviewed PR head SHA"
+              )
+
+          output = Path(os.environ["GITHUB_OUTPUT"])
+          with output.open("a", encoding="utf-8") as stream:
+              stream.write(f"artifact-digest={artifact_digest}\n")
+          PY
+
+      - name: Download exact-SHA quality-gate evidence
+        env:
+          ARTIFACT_NAME: promotion-evidence-${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          artifact_json="$(
+            gh api \
+              -X GET \
+              "repos/${REPOSITORY}/actions/artifacts" \
+              -f "name=${ARTIFACT_NAME}" \
+              -f "per_page=100"
+          )"
+          mapfile -t artifact_rows < <(
+            jq -r \
+              --arg name "$ARTIFACT_NAME" \
+              --arg sha "$HEAD_SHA" \
+              '.artifacts[]
+               | select(.name == $name and .expired == false)
+               | select(.workflow_run.head_sha == $sha)
+               | [.id, .archive_download_url] | @tsv' \
+              <<<"$artifact_json"
+          )
+          if (( ${#artifact_rows[@]} != 1 )); then
+            echo "::error::Expected exactly one non-expired ${ARTIFACT_NAME} artifact for current dev SHA"
+            exit 1
+          fi
+
+          IFS=$'\t' read -r artifact_id archive_url <<<"${artifact_rows[0]}"
+          evidence_dir="$RUNNER_TEMP/promotion-evidence"
+          mkdir -p "$evidence_dir"
+          gh api "$archive_url" >"$RUNNER_TEMP/promotion-evidence.zip"
+          unzip -q "$RUNNER_TEMP/promotion-evidence.zip" -d "$evidence_dir"
+          mapfile -t evidence_files < <(
+            find "$evidence_dir" -type f -name promotion-evidence.json -print
+          )
+          if (( ${#evidence_files[@]} != 1 )); then
+            echo "::error::Artifact ${artifact_id} must contain exactly one promotion-evidence.json"
+            exit 1
+          fi
+          printf 'EVIDENCE_PATH=%s\n' "${evidence_files[0]}" >>"$GITHUB_ENV"
+
+      - name: Validate exact promotion evidence
+        env:
+          EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha }}
+          EXPECTED_DIGEST: ${{ steps.metadata.outputs.artifact-digest }}
+        run: |
+          set -euo pipefail
+          python3 config/quality-gates/validate_promotion.py \
+            "$EVIDENCE_PATH" \
+            --expected-commit "$EXPECTED_COMMIT" \
+            --expected-digest "$EXPECTED_DIGEST" \
+            --defer-manual-approval
 
   manual-qa-approval:
     name: Manual QA promotion approval
@@ -37,9 +168,41 @@ jobs:
     runs-on: ubuntu-latest
     environment: qa-promotion-approval
     steps:
-      - name: Record approved promotion request
+      - name: Recheck current branches after owner approval
         env:
-          EVIDENCE_PATH: ${{ inputs.evidence-path }}
+          APPROVED_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          APPROVED_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          echo "QA promotion approval granted for ${EVIDENCE_PATH}"
-          echo "Workflow actor: ${GITHUB_ACTOR}"
+          set -euo pipefail
+          current_dev_sha="$(
+            gh api "repos/${REPOSITORY}/git/ref/heads/dev" --jq '.object.sha'
+          )"
+          current_qa_sha="$(
+            gh api "repos/${REPOSITORY}/git/ref/heads/qa" --jq '.object.sha'
+          )"
+          if [[ "$APPROVED_HEAD_SHA" != "$current_dev_sha" ]]; then
+            echo "::error::Stale promotion after approval: dev advanced"
+            exit 1
+          fi
+          if [[ "$APPROVED_BASE_SHA" != "$current_qa_sha" ]]; then
+            echo "::error::Stale promotion after approval: qa advanced"
+            exit 1
+          fi
+
+      - name: Record merge eligibility
+        env:
+          ARTIFACT_DIGEST: ${{ needs.mandatory-quality-gates.outputs.artifact-digest }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          {
+            echo "## QA promotion approved"
+            echo
+            echo "- Promotion commit: \`${HEAD_SHA}\`"
+            echo "- Artifact digest: \`${ARTIFACT_DIGEST}\`"
+            echo "- Approved by: \`${GITHUB_ACTOR}\`"
+            echo "- Approval run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+            echo
+            echo "The pull request is merge-eligible only while dev and qa remain at the rechecked commits."
+          } >>"$GITHUB_STEP_SUMMARY"
