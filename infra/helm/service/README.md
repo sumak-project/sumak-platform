@@ -30,6 +30,24 @@ helm template example infra/helm/service \
 
 The default image is deliberately non-runnable. Replace both
 `image.repository` and `image.digest`; tags, including `latest`, are unsupported.
+The chart supports the reviewed DEV EKS Kubernetes range 1.32–1.37.
+
+## DEV deployment operation
+
+`.github/workflows/dev-helm-deploy.yml` is the only tracked deployment operation
+for `config-svc`. It requires protected `dev` environment approval, explicit
+`DEPLOY-DEV` authorization, and an already approved digest in the DEV ECR
+repository. It deploys to `sumak-dev` with a bounded Helm wait and rollout,
+then checks the live and ready endpoints.
+
+Helm's `--atomic` behavior rolls a failed upgrade back to the preceding release
+and removes a failed initial installation. If post-deployment health fails, the
+workflow restores the recorded prior revision or removes the first installation.
+A forward fix is a new manual run with a newly approved immutable digest; never
+replace an ECR tag or edit release state manually. The operation uses only the
+temporary DEV credential secret references documented by the publication
+workflow. Until an authorized workflow run is linked as evidence, deployment,
+health, and rollback remain `NOT_RUN`.
 
 ## Values contract
 

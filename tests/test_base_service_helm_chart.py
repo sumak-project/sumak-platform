@@ -53,12 +53,23 @@ class BaseServiceHelmChartTest(unittest.TestCase):
         chart = read(CHART / "Chart.yaml")
         self.assertIn("apiVersion: v2", chart)
         self.assertIn("name: sumak-service", chart)
+        self.assertRegex(chart, r'(?m)^kubeVersion:\s*">=1\.32\.0-0 <1\.38\.0-0"$')
         self.assertEqual(self.schema["properties"]["replicaCount"]["maximum"], 3)
         self.assertEqual(self.schema["properties"]["replicaCount"]["minimum"], 1)
         self.assertEqual(
             self.schema["properties"]["image"]["properties"]["digest"]["pattern"],
             "^sha256:[a-fA-F0-9]{64}$",
         )
+
+    def test_kubernetes_version_bounds_are_inclusive_132_through_137(self):
+        constraint = re.search(r'(?m)^kubeVersion:\s*"([^"]+)"', read(CHART / "Chart.yaml"))
+        self.assertIsNotNone(constraint)
+        minimum, maximum = re.fullmatch(r">=1\.(\d+)\.0-0 <1\.(\d+)\.0-0", constraint.group(1)).groups()
+        minimum, maximum = int(minimum), int(maximum)
+        self.assertEqual((minimum, maximum), (32, 38))
+        self.assertTrue(all(minimum <= minor < maximum for minor in range(32, 38)))
+        self.assertFalse(minimum <= 31 < maximum)
+        self.assertFalse(minimum <= 38 < maximum)
         self.assertEqual(
             set(self.schema["properties"]["probes"]["properties"]),
             {"liveness", "readiness", "startup"},

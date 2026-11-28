@@ -1,0 +1,10 @@
+# DEV config-svc deployment values. The deployment workflow supplies the
+# approved ECR manifest digest with --set-string; tags are not accepted.
+fullnameOverride: config-svc
+
+image:
+  repository: 632080579751.dkr.ecr.us-east-1.amazonaws.com/sumak/dev/config-svc
+  digest: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
