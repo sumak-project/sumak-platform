@@ -27,41 +27,30 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          set -euo pipefail
-          changed=false
-          while IFS= read -r path; do
-            case "$path" in
-              *.gradle|*.gradle.kts|gradle.properties|*/gradle.properties|\
-              gradle/*.versions.toml|*/gradle/*.versions.toml|\
-              gradle/wrapper/*|*/gradle.lockfile|gradle.lockfile|\
-              gradle/dependency-locks/*|*/gradle/dependency-locks/*|\
-              build-logic/*)
-                changed=true
-                break
-                ;;
-            esac
-          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA")
-          printf 'changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
+          scripts/ci/detect_changes.py \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --github-output "$GITHUB_OUTPUT"
       - name: Report unchanged dependency inputs
-        if: steps.dependency-changes.outputs.changed != 'true'
+        if: steps.dependency-changes.outputs.gradle_dependency_inputs_changed != 'true'
         run: echo "No reviewed Gradle dependency inputs changed; vulnerability delta is empty."
       - name: Prepare isolated Gradle cache
-        if: steps.dependency-changes.outputs.changed == 'true'
+        if: steps.dependency-changes.outputs.gradle_dependency_inputs_changed == 'true'
         run: printf 'GRADLE_USER_HOME=%s\n' "$RUNNER_TEMP/gradle-home" >> "$GITHUB_ENV"
       - name: Set up Java 21
-        if: steps.dependency-changes.outputs.changed == 'true'
+        if: steps.dependency-changes.outputs.gradle_dependency_inputs_changed == 'true'
         uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
       - name: Set up Gradle
-        if: steps.dependency-changes.outputs.changed == 'true'
+        if: steps.dependency-changes.outputs.gradle_dependency_inputs_changed == 'true'
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
       # Resolve every Gradle configuration into an isolated cache. Trivy scans
       # the resolved JAR metadata directly, so this gate does not depend on
       # repository-level dependency graph settings or expose credentials.
       - name: Resolve reviewed Gradle dependencies
-        if: steps.dependency-changes.outputs.changed == 'true'
+        if: steps.dependency-changes.outputs.gradle_dependency_inputs_changed == 'true'
         run: |
           set -euo pipefail
           init_script="$RUNNER_TEMP/resolve-dependencies.init.gradle"
@@ -80,7 +69,7 @@ jobs:
           EOF
           ./gradlew resolveAllCiDependencies --init-script "$init_script" --no-daemon
       - name: Reject high or critical dependency vulnerabilities
-        if: steps.dependency-changes.outputs.changed == 'true'
+        if: steps.dependency-changes.outputs.gradle_dependency_inputs_changed == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           version: v0.70.0

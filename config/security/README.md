@@ -38,11 +38,20 @@ The dependency review check runs in CI as described above. An empty delta
 applies only when no dependency-relevant Gradle inputs changed; it does not
 assert that repository dependencies are clean.
 
-Terraform formatting, backend-free initialization, validation, and
-configuration scanning always run. Credentialed Terraform plans and uploads
-run only when `*.tf` source under `infra/accounts` or `infra/modules` changes.
-Those credentialed operations are intentionally conditional and are not
-evidence of a successful plan when cloud credentials are unavailable.
+Terraform formatting, backend-free initialization, validation, configuration
+scanning, and credentialed plans run only when `*.tf` source under
+`infra/accounts` or `infra/modules` changes. An unresolved routing decision
+blocks the required jobs instead of being treated as an unchanged path.
+Credentialed operations remain conditional and are not evidence of a
+successful plan when cloud credentials are unavailable.
+
+PR validation routes component changes to the corresponding Gradle project.
+Changes to shared Gradle or dependency inputs retain the repository-wide
+`check`. Contract source changes retain deterministic contract validation and
+may add only consumers explicitly recorded in
+`config/ci/path-routing.json`. A contract source without that reviewed mapping
+fails the routing job as `BLOCKED`; candidate ownership data is never used to
+silently infer or omit a dependent consumer.
 
 ## Triage and waivers
 

@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "contractSourcePrefixes": [
+    "contracts/asyncapi/",
+    "contracts/graphql/",
+    "contracts/openapi-webhooks/",
+    "contracts/protobuf/"
+  ],
+  "contractConsumers": {}
+}
