@@ -1,0 +1,148 @@
+name: Publish approved DEV image to ECR
+
+on:
+  workflow_dispatch:
+    inputs:
+      authorization:
+        description: "Type PUBLISH-DEV to authorize this manual DEV publication"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-ecr-config-svc-publish
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  EXPECTED_AWS_ACCOUNT_ID: "632080579751"
+  ECR_REPOSITORY: sumak/dev/config-svc
+  LOCAL_IMAGE: sumak/config-svc
+
+jobs:
+  publish:
+    name: Build, scan, and publish approved digest
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 45
+    steps:
+      - name: Require explicit manual authorization
+        env:
+          AUTHORIZATION: ${{ inputs.authorization }}
+        run: |
+          set -euo pipefail
+          if [[ "$AUTHORIZATION" != "PUBLISH-DEV" ]]; then
+            echo "::error::Manual authorization was not provided"
+            exit 1
+          fi
+
+      - name: Check out the authorized revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
+
+      - name: Build config-svc without publishing
+        run: |
+          set -euo pipefail
+          image_tag="${LOCAL_IMAGE}:${GITHUB_SHA}"
+          docker buildx build \
+            --file services/config-svc/Dockerfile \
+            --load \
+            --tag "$image_tag" \
+            .
+          source_image_id="$(docker image inspect --format '{{.Id}}' "$image_tag")"
+          printf 'IMAGE_TAG=%s\n' "$image_tag" >> "$GITHUB_ENV"
+          printf 'SOURCE_IMAGE_ID=%s\n' "$source_image_id" >> "$GITHUB_ENV"
+
+      - name: Scan image before publication
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.70.0
+          image-ref: ${{ env.IMAGE_TAG }}
+          scan-type: image
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          hide-progress: true
+
+      - name: Verify temporary DEV identity
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          credentials_file="$RUNNER_TEMP/sumak-dev-credentials"
+          export AWS_SHARED_CREDENTIALS_FILE="$credentials_file"
+          trap 'rm -f "$credentials_file"' EXIT
+          if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" || -z "$AWS_SESSION_TOKEN" ]]; then
+            echo "::error::BLOCKED_PERMISSIONS: temporary DEV credentials are required"
+            exit 1
+          fi
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile sumak-dev
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile sumak-dev
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile sumak-dev
+          actual_account_id="$(aws sts get-caller-identity --profile sumak-dev --query Account --output text)"
+          if [[ "$actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID" ]]; then
+            echo "::error::BLOCKED_PERMISSIONS: identity is not in the approved DEV account"
+            exit 1
+          fi
+
+      - name: Publish and verify immutable destination digest
+        id: publish
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          registry="${EXPECTED_AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+          immutable_tag="git-${GITHUB_SHA}"
+          destination="${registry}/${ECR_REPOSITORY}:${immutable_tag}"
+
+          aws ecr get-login-password --region "$AWS_REGION" |
+            docker login --username AWS --password-stdin "$registry"
+          docker tag "$IMAGE_TAG" "$destination"
+          docker push "$destination"
+
+          image_digest="$(aws ecr describe-images \
+            --region "$AWS_REGION" \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageTag="$immutable_tag" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          if [[ ! "$image_digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::ECR did not return a valid destination imageDigest"
+            exit 1
+          fi
+
+          digest_reference="${registry}/${ECR_REPOSITORY}@${image_digest}"
+          docker pull "$digest_reference"
+          printf 'IMAGE_DIGEST=%s\n' "$image_digest" >> "$GITHUB_ENV"
+          printf 'DIGEST_REFERENCE=%s\n' "$digest_reference" >> "$GITHUB_ENV"
+          printf 'image_digest=%s\n' "$image_digest" >> "$GITHUB_OUTPUT"
+
+      - name: Record credential-free publication evidence
+        run: |
+          set -euo pipefail
+          {
+            echo "## DEV ECR publication evidence"
+            echo ""
+            echo "- Authorization: manual workflow_dispatch with protected DEV environment"
+            echo "- Dispatcher: \`${GITHUB_ACTOR}\`"
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Source image ID: \`${SOURCE_IMAGE_ID}\`"
+            echo "- Account: \`${EXPECTED_AWS_ACCOUNT_ID}\`"
+            echo "- Region: \`${AWS_REGION}\`"
+            echo "- Repository: \`${ECR_REPOSITORY}\`"
+            echo "- Destination digest: \`${IMAGE_DIGEST}\`"
+            echo "- Deploy reference: \`${DIGEST_REFERENCE}\`"
+            echo "- Exact digest pull: PASS"
+            echo "- Credentials: sanitized; no credentials are written to evidence"
+          } >> "$GITHUB_STEP_SUMMARY"
