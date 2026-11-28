@@ -26,3 +26,16 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate promotion evidence
         run: python3 config/quality-gates/validate_promotion.py "${{ inputs.evidence-path }}"
+
+  manual-qa-approval:
+    name: Manual QA promotion approval
+    needs: mandatory-quality-gates
+    runs-on: ubuntu-latest
+    environment: qa-promotion-approval
+    steps:
+      - name: Record approved promotion request
+        env:
+          EVIDENCE_PATH: ${{ inputs.evidence-path }}
+        run: |
+          echo "QA promotion approval granted for ${EVIDENCE_PATH}"
+          echo "Workflow actor: ${GITHUB_ACTOR}"

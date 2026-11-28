@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +32,7 @@ ALLOWED_STATUSES = {
 }
 
 SHA256_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+ISO_8601_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def _non_empty_string(value: Any) -> bool:
@@ -40,6 +42,16 @@ def _non_empty_string(value: Any) -> bool:
 def _require_text(document: dict[str, Any], field: str, errors: list[str]) -> None:
     if not _non_empty_string(document.get(field)):
         errors.append(f"'{field}' must be a non-empty string")
+
+
+def _is_iso_8601_utc(value: str) -> bool:
+    if not ISO_8601_UTC.fullmatch(value):
+        return False
+    try:
+        datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return False
+    return True
 
 
 def validate(document: Any) -> list[str]:
@@ -68,6 +80,21 @@ def validate(document: Any) -> list[str]:
     digest = document.get("artifact_digest")
     if _non_empty_string(digest) and not SHA256_DIGEST.fullmatch(digest):
         errors.append("'artifact_digest' must be a lowercase sha256 digest")
+
+    approval = document.get("manual_approval")
+    if not isinstance(approval, dict):
+        errors.append("'manual_approval' must be an object")
+    else:
+        for field in ("approved_by", "approved_at", "evidence"):
+            if not _non_empty_string(approval.get(field)):
+                errors.append(f"'manual_approval.{field}' must be a non-empty string")
+        if approval.get("decision") != "APPROVED":
+            errors.append("'manual_approval.decision' must be 'APPROVED'")
+        approved_at = approval.get("approved_at")
+        if _non_empty_string(approved_at) and not _is_iso_8601_utc(approved_at):
+            errors.append(
+                "'manual_approval.approved_at' must be an ISO 8601 UTC timestamp"
+            )
 
     gates = document.get("gates")
     if not isinstance(gates, list):
@@ -128,7 +155,7 @@ def validate(document: Any) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Block DEV-to-QA promotion unless every mandatory gate passes or has an approved ADR waiver."
+        description="Block DEV-to-QA promotion unless mandatory gates pass and manual approval is recorded."
     )
     parser.add_argument("evidence", type=Path, help="path to promotion evidence JSON")
     args = parser.parse_args()
@@ -146,7 +173,7 @@ def main() -> int:
             print(f"- {error}", file=sys.stderr)
         return 1
 
-    print("Promotion gate passed: all mandatory gates passed or have approved ADR waivers.")
+    print("Promotion gate passed: mandatory gates and manual approval are valid.")
     return 0
 
 
