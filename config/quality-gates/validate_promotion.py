@@ -121,7 +121,13 @@ PASS_EVIDENCE_FIELDS = frozenset(
 )
 
 
-def validate(document: Any) -> list[str]:
+def validate(
+    document: Any,
+    *,
+    expected_commit: str | None = None,
+    expected_digest: str | None = None,
+    require_manual_approval: bool = True,
+) -> list[str]:
     """Return every validation error; an empty list means promotion is allowed."""
     if not isinstance(document, dict):
         return ["evidence must be a JSON object"]
@@ -151,25 +157,35 @@ def validate(document: Any) -> list[str]:
     commit = document.get("commit")
     if _non_empty_string(commit) and not GIT_COMMIT_SHA.fullmatch(commit):
         errors.append("'commit' must be a full lowercase 40-character Git SHA")
+    if expected_commit is not None and commit != expected_commit:
+        errors.append("'commit' does not match the expected promotion commit")
+
+    if expected_digest is not None and digest != expected_digest:
+        errors.append(
+            "'artifact_digest' does not match the expected promotion digest"
+        )
 
     executed_at = document.get("executed_at")
     if _non_empty_string(executed_at) and not _is_iso_8601_utc(executed_at):
         errors.append("'executed_at' must be an ISO 8601 UTC timestamp")
 
-    approval = document.get("manual_approval")
-    if not isinstance(approval, dict):
-        errors.append("'manual_approval' must be an object")
-    else:
-        for field in ("approved_by", "approved_at", "evidence"):
-            if not _non_empty_string(approval.get(field)):
-                errors.append(f"'manual_approval.{field}' must be a non-empty string")
-        if approval.get("decision") != "APPROVED":
-            errors.append("'manual_approval.decision' must be 'APPROVED'")
-        approved_at = approval.get("approved_at")
-        if _non_empty_string(approved_at) and not _is_iso_8601_utc(approved_at):
-            errors.append(
-                "'manual_approval.approved_at' must be an ISO 8601 UTC timestamp"
-            )
+    if require_manual_approval:
+        approval = document.get("manual_approval")
+        if not isinstance(approval, dict):
+            errors.append("'manual_approval' must be an object")
+        else:
+            for field in ("approved_by", "approved_at", "evidence"):
+                if not _non_empty_string(approval.get(field)):
+                    errors.append(
+                        f"'manual_approval.{field}' must be a non-empty string"
+                    )
+            if approval.get("decision") != "APPROVED":
+                errors.append("'manual_approval.decision' must be 'APPROVED'")
+            approved_at = approval.get("approved_at")
+            if _non_empty_string(approved_at) and not _is_iso_8601_utc(approved_at):
+                errors.append(
+                    "'manual_approval.approved_at' must be an ISO 8601 UTC timestamp"
+                )
 
     gates = document.get("gates")
     if not isinstance(gates, list):
@@ -243,6 +259,19 @@ def main() -> int:
         action="store_true",
         help="validate and report the repository six-gate policy",
     )
+    parser.add_argument(
+        "--expected-commit",
+        help="require evidence for this exact full Git commit SHA",
+    )
+    parser.add_argument(
+        "--expected-digest",
+        help="require evidence for this exact immutable OCI digest",
+    )
+    parser.add_argument(
+        "--defer-manual-approval",
+        action="store_true",
+        help="validate gates before a protected environment records approval",
+    )
     args = parser.parse_args()
 
     policy_errors = validate_policy(GATE_POLICY)
@@ -267,7 +296,12 @@ def main() -> int:
         print(f"Promotion blocked: cannot read valid JSON evidence: {error}", file=sys.stderr)
         return 2
 
-    errors = validate(document)
+    errors = validate(
+        document,
+        expected_commit=args.expected_commit,
+        expected_digest=args.expected_digest,
+        require_manual_approval=not args.defer_manual_approval,
+    )
     if errors:
         print("Promotion blocked:", file=sys.stderr)
         for error in errors:

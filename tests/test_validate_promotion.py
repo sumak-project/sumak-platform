@@ -69,6 +69,68 @@ class ValidatePromotionTests(unittest.TestCase):
     def test_all_pass_evidence_is_valid(self):
         self.assertEqual(validate(valid_evidence()), [])
 
+    def test_deferred_manual_approval_allows_complete_pass_gates_only(self):
+        document = valid_evidence()
+        document.pop("manual_approval")
+        self.assertEqual(validate(document, require_manual_approval=False), [])
+
+        for mutate in (
+            lambda doc: doc.__setitem__(
+                "gates", [gate for gate in doc["gates"] if gate["id"] != "unit"]
+            ),
+            lambda doc: doc["gates"][0].__setitem__("status", "NOT_RUN"),
+            lambda doc: doc["gates"][0].__setitem__("status", "FAIL"),
+            lambda doc: doc["gates"][0].__setitem__("status", "SKIPPED"),
+            lambda doc: doc["gates"][0].__setitem__("status", "CANCELLED"),
+        ):
+            invalid = valid_evidence()
+            invalid.pop("manual_approval")
+            mutate(invalid)
+            with self.subTest(gates=invalid["gates"]):
+                self.assertTrue(
+                    validate(invalid, require_manual_approval=False),
+                    "defer-approval mode must still block incomplete or non-PASS gates",
+                )
+
+    def test_default_validation_still_requires_approved_manual_evidence(self):
+        document = valid_evidence()
+        document.pop("manual_approval")
+        errors = validate(document)
+        self.assertIn("'manual_approval' must be an object", errors)
+
+    def test_expected_commit_and_digest_must_match_exactly(self):
+        document = valid_evidence()
+        expected_commit = document["commit"]
+        expected_digest = document["artifact_digest"]
+        self.assertEqual(
+            validate(document, expected_commit=expected_commit, expected_digest=expected_digest),
+            [],
+        )
+
+        mismatched_commit = valid_evidence()
+        mismatched_commit["commit"] = "b" * 40
+        commit_errors = validate(
+            mismatched_commit,
+            expected_commit=expected_commit,
+            expected_digest=expected_digest,
+        )
+        self.assertTrue(
+            any("commit" in error.lower() and "expected" in error.lower() for error in commit_errors),
+            f"expected actionable commit binding error, received: {commit_errors}",
+        )
+
+        mismatched_digest = valid_evidence()
+        mismatched_digest["artifact_digest"] = "sha256:" + "b" * 64
+        digest_errors = validate(
+            mismatched_digest,
+            expected_commit=expected_commit,
+            expected_digest=expected_digest,
+        )
+        self.assertTrue(
+            any("digest" in error.lower() and "expected" in error.lower() for error in digest_errors),
+            f"expected actionable digest binding error, received: {digest_errors}",
+        )
+
     def test_missing_or_invalid_manual_approval_is_rejected(self):
         cases = (
             ("missing object", None, "'manual_approval' must be an object"),
