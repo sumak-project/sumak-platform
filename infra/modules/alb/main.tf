@@ -4,6 +4,9 @@ locals {
   })
 }
 
+# The ALB is the reviewed public ingress boundary; targets remain private and
+# exposure is constrained by the supplied ingress security group and HTTPS listener.
+#trivy:ignore:AVD-AWS-0053
 resource "aws_lb" "this" {
   name               = var.name
   internal           = false
