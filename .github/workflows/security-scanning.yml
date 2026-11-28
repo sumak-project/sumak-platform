@@ -19,18 +19,78 @@ jobs:
       - name: Check out the reviewed commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
-      # GitHub's dependency graph evaluates Gradle manifests and version catalogs,
-      # plus supported pnpm, npm, Python, and other ecosystem lockfiles.
-      - name: Reject vulnerable dependency changes
-        uses: actions/dependency-review-action@bbc44d14a204704ccc493733616cd1e93a0321ec # v5.0.1
+      - name: Detect reviewed dependency input changes
+        id: dependency-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed=false
+          while IFS= read -r path; do
+            case "$path" in
+              *.gradle|*.gradle.kts|gradle.properties|*/gradle.properties|\
+              gradle/*.versions.toml|*/gradle/*.versions.toml|\
+              gradle/wrapper/*|*/gradle.lockfile|gradle.lockfile|\
+              gradle/dependency-locks/*|*/gradle/dependency-locks/*|\
+              build-logic/*)
+                changed=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA")
+          printf 'changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
+      - name: Report unchanged dependency inputs
+        if: steps.dependency-changes.outputs.changed != 'true'
+        run: echo "No reviewed Gradle dependency inputs changed; vulnerability delta is empty."
+      - name: Prepare isolated Gradle cache
+        if: steps.dependency-changes.outputs.changed == 'true'
+        run: printf 'GRADLE_USER_HOME=%s\n' "$RUNNER_TEMP/gradle-home" >> "$GITHUB_ENV"
+      - name: Set up Java 21
+        if: steps.dependency-changes.outputs.changed == 'true'
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
-          fail-on-severity: high
-          fail-on-scopes: runtime, development, unknown
-          vulnerability-check: true
-          warn-only: false
-          comment-summary-in-pr: never
-          show-openssf-scorecard: false
+          distribution: temurin
+          java-version: "21"
+      - name: Set up Gradle
+        if: steps.dependency-changes.outputs.changed == 'true'
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4.4.3
+      # Resolve every Gradle configuration into an isolated cache. Trivy scans
+      # the resolved JAR metadata directly, so this gate does not depend on
+      # repository-level dependency graph settings or expose credentials.
+      - name: Resolve reviewed Gradle dependencies
+        if: steps.dependency-changes.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          init_script="$RUNNER_TEMP/resolve-dependencies.init.gradle"
+          cat >"$init_script" <<'EOF'
+          gradle.projectsEvaluated {
+              rootProject.tasks.register("resolveAllCiDependencies") {
+                  doLast {
+                      rootProject.allprojects.each { project ->
+                          project.configurations
+                              .findAll { configuration -> configuration.canBeResolved }
+                              .each { configuration -> configuration.resolve() }
+                      }
+                  }
+              }
+          }
+          EOF
+          ./gradlew resolveAllCiDependencies --init-script "$init_script" --no-daemon
+      - name: Reject high or critical dependency vulnerabilities
+        if: steps.dependency-changes.outputs.changed == 'true'
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.70.0
+          scan-type: rootfs
+          scan-ref: ${{ env.GRADLE_USER_HOME }}/caches/modules-2/files-2.1
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          ignore-unfixed: false
+          hide-progress: true
 
   secret-scan:
     name: Tracked source and history secret scan

@@ -2,10 +2,13 @@
 
 Pull requests targeting `dev` run three independent, fail-closed checks:
 
-1. **Dependency vulnerability review** uses GitHub's dependency graph to
-   reject new high or critical vulnerabilities in runtime, development, or
-   unknown scopes. Coverage includes Gradle manifests and version catalogs and
-   supported lockfiles for any additional ecosystems introduced later.
+1. **Dependency vulnerability review** is incremental: it detects dependency-
+   relevant Gradle inputs changed between reviewed base and head. If none
+   changed, it reports an empty vulnerability delta. Otherwise it resolves
+   every subproject's resolvable configurations into isolated
+   `GRADLE_USER_HOME` and uses pinned Trivy 0.70.0 in `rootfs` mode to inspect
+   cached JARs, failing closed on HIGH or CRITICAL findings. This avoids
+   reliance on GitHub's dependency-graph API or repository settings.
 2. **Secret scan** runs Gitleaks 8.30.1 over the complete Git history. The
    installer verifies the Linux x86-64 release checksum, and findings are
    redacted in logs.
@@ -31,9 +34,15 @@ python3 -m venv /tmp/opencode/sumak-security/venv
   --min-severity medium --min-confidence medium --offline .
 ```
 
-The dependency review check is backed by GitHub's comparison API. Reproduce it
-by opening a draft pull request against `dev`; a missing or unavailable
-dependency graph is a failed or blocked check, never a pass.
+The dependency review check runs in CI as described above. An empty delta
+applies only when no dependency-relevant Gradle inputs changed; it does not
+assert that repository dependencies are clean.
+
+Terraform formatting, backend-free initialization, validation, and
+configuration scanning always run. Credentialed Terraform plans and uploads
+run only when `*.tf` source under `infra/accounts` or `infra/modules` changes.
+Those credentialed operations are intentionally conditional and are not
+evidence of a successful plan when cloud credentials are unavailable.
 
 ## Triage and waivers
 
@@ -54,8 +63,7 @@ There are no silent scanner exclusions. A documented waiver is
 
 ## Required GitHub configuration
 
-Repository administrators must enable the dependency graph and require these
-checks on `dev`:
+Repository administrators must require these checks on `dev`:
 
 - `Dependency vulnerability review`
 - `Tracked source and history secret scan`

@@ -90,6 +90,22 @@ class PrValidationTerraformJobTests(unittest.TestCase):
         self.assertRegex(commands, r"actions/upload-artifact@")
         self.assertRegex(commands, r"(?m)^\s*path:\s*\$\{\{\s*runner\.temp\s*\}\}/")
 
+    def test_terraform_plan_and_upload_are_gated_by_tf_source_detector(self):
+        source = self.source
+        self.assertRegex(source, r"(?is)Detect reviewed Terraform source changes")
+        self.assertRegex(source, r"(?is)infra/accounts/\*\.tf\|infra/modules/\*\.tf")
+        for name in ("Create reviewed Terraform plans", "Upload limited-retention Terraform plans"):
+            self.assertRegex(self.steps[name], r"(?m)^\s+if:\s*steps\.terraform-changes\.outputs\.changed == ['\"]true['\"]")
+
+    def test_offline_terraform_gates_remain_unconditional_and_fail_closed(self):
+        for name in (
+            "Check Terraform formatting",
+            "Initialize and validate Terraform roots",
+            "Scan Terraform security and policy",
+        ):
+            self.assertNotRegex(self.steps[name], r"(?m)^\s+if:")
+        self.assertRegex(self.source, r"(?m)^\s*continue-on-error:\s*false\s*$")
+
 
 if __name__ == "__main__":
     unittest.main()

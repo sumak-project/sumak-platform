@@ -41,20 +41,45 @@ class SecurityScanningPolicyTests(unittest.TestCase):
                 r"^[^@]+@(?:[0-9a-f]{40}|v?\d+\.\d+\.\d+(?:[-+][A-Za-z0-9.-]+)?)$",
                 f"Action reference must be immutable/pinned: {reference}",
             )
-        self.assertRegex(self.source, r"(?i)dependency.review")
+        self.assertNotRegex(self.source, r"(?i)dependency-review-action")
+        self.assertRegex(self.source, r"(?i)trivy")
+        self.assertRegex(self.source, r"(?m)^\s*scan-type:\s*rootfs\s*$")
         self.assertRegex(self.source, r"(?i)gitleaks")
         self.assertRegex(self.source, r"(?i)semgrep")
         self.assertRegex(self.source, r"(?i)zizmor")
 
     def test_fail_closed_severity_coverage_and_pr_range_are_explicit(self):
         source = self.source.lower()
-        self.assertRegex(source, r"(?i)fail-on-severity:\s*high")
+        self.assertRegex(source, r"(?i)GRADLE_USER_HOME")
+        self.assertRegex(source, r"(?i)(gradle.*dependencies|dependencies.*gradle)")
+        self.assertRegex(source, r"(?i)(vuln|vulnerability)")
+        self.assertRegex(source, r"(?i)HIGH,?\s*CRITICAL")
+        self.assertRegex(source, r"(?i)(--exit-code\s+1|exit-code:\s*[\"']?1)")
         self.assertRegex(source, r"(?i)gradle")
-        self.assertRegex(source, r"(?i)lockfile")
+        self.assertRegex(source, r"(?i)caches/modules-2/files-2.1")
+        self.assertRegex(source, r"(?i)(dependency.*input|gradle.*input)")
+        self.assertRegex(source, r"(?i)fetch-depth:\s*0")
+        self.assertRegex(source, r"(?i)base.sha")
+        self.assertRegex(source, r"(?i)head.sha")
+        self.assertRegex(source, r"(?i)(git diff|changed)")
+        self.assertRegex(source, r"(?i)no reviewed gradle dependency inputs changed")
         self.assertRegex(source, r"(?i)(--redact|redact)")
         self.assertRegex(source, r"(?i)(full history|fetch-depth:\s*0|base_ref|head_ref)")
         self.assertRegex(source, r"(?i)(--error|error)")
         self.assertRegex(source, r"(?i)(continue-on-error:\s*false|set -e)")
+
+    def test_dependency_resolve_and_rootfs_scan_are_conditional_on_safe_diff_detector(self):
+        source = self.source
+        self.assertRegex(source, r"(?m)^\s+fetch-depth:\s*0\s*$")
+        self.assertRegex(source, r"(?m)^\s+BASE_SHA:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}")
+        self.assertRegex(source, r"(?m)^\s+HEAD_SHA:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}")
+        self.assertRegex(source, r"(?is)(gradle|dependency).{0,300}(build\.gradle|settings\.gradle|gradle\.properties|gradle/libs\.versions\.toml|gradle\.lockfile)")
+        steps = re.split(r"(?m)^\s{6}- name:", source)
+        for fragment in steps:
+            if re.search(r"(?i)(resolve reviewed gradle dependencies|reject high or critical dependency vulnerabilities)", fragment):
+                self.assertRegex(fragment, r"(?m)^\s+if:\s*")
+        self.assertRegex(source, r"(?i)no reviewed gradle dependency inputs changed")
+        self.assertNotRegex(source, r"(?i)dependency-review-action")
 
     def test_no_credentials_or_silent_waivers_and_waiver_has_owner_and_adr(self):
         source = self.source

@@ -23,6 +23,7 @@ jobs:
       - name: Check out the reviewed commit
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Set up Terraform
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
@@ -65,7 +66,25 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           hide-progress: true
+      - name: Detect reviewed Terraform source changes
+        id: terraform-changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          changed=false
+          while IFS= read -r path; do
+            case "$path" in
+              infra/accounts/*.tf|infra/modules/*.tf)
+                changed=true
+                break
+                ;;
+            esac
+          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" -- infra/accounts infra/modules)
+          printf 'changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
       - name: Create reviewed Terraform plans
+        if: steps.terraform-changes.outputs.changed == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
@@ -108,6 +127,7 @@ jobs:
               -out="$plan_dir/$root_id.tfplan"
           done
       - name: Upload limited-retention Terraform plans
+        if: steps.terraform-changes.outputs.changed == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: terraform-plans-${{ github.event.pull_request.head.sha }}

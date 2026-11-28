@@ -4,9 +4,25 @@
 
 Pull requests targeting `dev` define separate checks for dependency
 vulnerabilities, secrets in tracked history, and source/workflow security.
-Scanner and action versions are pinned. The checks run with read-only
-repository and pull-request permissions and do not consume AWS or production
-credentials.
+Scanner and action versions are pinned. Dependency review is incremental:
+dependency-relevant Gradle inputs are compared between reviewed base and head.
+With no such changes, the check reports an empty vulnerability delta. With
+changes, it resolves every subproject's resolvable configurations into an
+isolated `GRADLE_USER_HOME` and uses Trivy 0.70.0 in `rootfs` mode to inspect
+cached JARs, failing on HIGH or CRITICAL findings. This avoids GitHub
+dependency-graph API and repository-setting dependence.
+
+Terraform formatting, backend-free initialization, validation, and
+configuration scanning always run. Credentialed plans and uploads run only
+when `*.tf` source under `infra/accounts` or `infra/modules` changes. The
+initial dependency-graph API 403 and unavailable cloud credentials are
+remediated CI design constraints, not PASS evidence. Local dependency
+resolution populated 317 JARs. Trivy `fs` mode was rejected because it reported
+that targets were not scanned; `rootfs` mode positively detected existing
+findings in the local cache. This is negative/detection evidence, not a clean
+PASS, and does not establish that repository dependencies are clean. The
+unavailable cloud credentials likewise do not establish a successful
+credentialed plan.
 
 Operational setup, local reproduction, triage, and the owner/rationale/ADR
 waiver policy are documented in `config/security/README.md`.
@@ -15,18 +31,16 @@ waiver policy are documented in `config/security/README.md`.
 
 | Check | Result |
 |---|---|
-| Security policy tests | `PASS`; 5 tests |
-| Full Python policy suite | `PASS`; 93 tests |
-| Gitleaks clean scans | `PASS`; Gitleaks 8.30.1 scanned 84 commits plus 23.43 KB of modified/untracked ticket files and reported no leaks |
-| Gitleaks generated negative fixture | `PASS`; a fictitious AWS-format identifier created and committed only in `/tmp/opencode` was rejected |
-| Semgrep clean repository scan | `PASS`; Semgrep 1.187.0 ran 5 local rules over 33 applicable targets with 0 findings |
-| Semgrep generated negative fixture | `PASS`; a Java process-execution fixture created only in `/tmp/opencode` was rejected |
-| zizmor workflow audit | `PASS`; zizmor 1.33.1 reported no findings and 8 suppressed informational results |
-| zizmor generated negative fixture | `PASS`; a write-all and unpinned-action workflow created only in `/tmp/opencode` was rejected |
-| Workflow YAML parse | `PASS`; all workflows parsed with ruamel.yaml |
+| Dedicated security policy tests | `PASS`; 6 tests |
+| Combined security and Terraform policy tests | `PASS`; 13 tests |
+| Full Python policy suite | `PASS`; 96 tests |
+| Gitleaks scan | `PASS`; Gitleaks 8.30.1 scanned 85 commits and approximately 1.23 MB with no leaks |
+| Semgrep repository scan | `PASS`; Semgrep 1.187.0 ran 5 rules over 33 targets with 0 findings |
+| zizmor workflow audit | `PASS`; zizmor 1.33.1 reported no findings (4 ignored, 3 suppressed) across the current two-workflow run |
 | GitHub Actions semantic lint | `PASS`; actionlint 1.7.10 |
-| `./gradlew check --no-daemon` | `PASS`; 106 actionable tasks (32 executed, 74 up-to-date) |
-| Dependency vulnerability review | `NOT_RUN`; requires the pull request comparison API |
+| `./gradlew check --no-daemon` | `PASS`; 106 actionable tasks (28 executed, 78 up-to-date) |
+| Dependency vulnerability review | Local resolver populated 317 JARs. Trivy `fs` was rejected as not scanned; Trivy 0.70.0 `rootfs` detected existing local-cache findings. Negative/detection evidence only; no clean PASS or repository-clean claim. |
+| Terraform credentialed plan/upload | Conditional on changed Terraform source under `infra/accounts` or `infra/modules`; cloud credentials unavailable in the initial environment, so no plan/upload PASS is claimed. |
 | Required checks on `dev` | `NOT_RUN`; repository administration pending |
 | `git diff --check` | `PASS` |
 
@@ -59,4 +73,4 @@ database integration, executable contract, or runtime workload.
 ## Commit and pull request
 
 - Commit: pending
-- Pull request: pending (target `dev`)
+- Pull request: #46 (target `dev`; [link pending verification])
