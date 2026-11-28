@@ -5,8 +5,9 @@
 Pull requests targeting `dev` run a blocking Terraform job before merge. The
 job checks formatting, initializes every account root without a backend,
 validates each root, scans Terraform configuration for high or critical
-security/policy findings, verifies the temporary AWS identity, and creates a
-reviewable plan for each root against its configured encrypted remote state.
+security/policy findings, verifies the temporary AWS identity, and creates
+reviewable plans for the foundational `network` and `network-boundaries` roots
+against their configured encrypted remote state.
 
 The plan step fails closed unless all temporary `sumak-dev` credential secrets
 and the expected account ID repository variable are present and a live
@@ -27,6 +28,11 @@ Required GitHub configuration:
 Learner Lab sessions are temporary. An expired or missing session is
 `BLOCKED_PERMISSIONS`, not a successful plan. Refresh it through the approved
 account access process; never replace it with long-lived credentials.
+
+Parameterized roots such as bastion, EKS, and PostgreSQL remain covered by
+format, backend-free validation, tests, and security scanning. They are not
+planned with invented values: their live inventory, role, subnet, and
+owner-security-group inputs must come from an authorized deployment workflow.
 
 ## Bounded scope and exclusions
 

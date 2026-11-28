@@ -88,13 +88,15 @@ jobs:
           fi
           plan_dir="$RUNNER_TEMP/terraform-plans"
           mkdir -p "$plan_dir"
-          mapfile -t roots < <(find infra/accounts -name versions.tf -type f -print | sort)
-          if (( ${#roots[@]} == 0 )); then
-            echo "::error::No Terraform account roots were found"
-            exit 1
-          fi
-          for file in "${roots[@]}"; do
-            root="${file%/versions.tf}"
+          plan_roots=(
+            "infra/accounts/sumak-dev/us-east-1/dev/network"
+            "infra/accounts/sumak-dev/us-east-1/dev/network-boundaries"
+          )
+          for root in "${plan_roots[@]}"; do
+            if [[ ! -f "$root/versions.tf" ]]; then
+              echo "::error::Configured Terraform plan root does not exist: $root"
+              exit 1
+            fi
             root_id="$(printf '%s' "$root" | sha256sum | cut -c1-16)"
             export TF_DATA_DIR="$RUNNER_TEMP/terraform-data/plan/$root_id"
             terraform -chdir="$root" init -input=false -lockfile=readonly
