@@ -72,5 +72,5 @@ database integration, executable contract, or runtime workload.
 
 ## Commit and pull request
 
-- Commit: pending
-- Pull request: #46 (target `dev`; [link pending verification])
+- Security-gate remediation commit: `eeeabda809f412f733d9029529b27c51cd6f2aa7`
+- Pull request: [#46](https://github.com/sumak-project/sumak-platform/pull/46) (target `dev`)
