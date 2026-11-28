@@ -1,7 +1,7 @@
 {
   "version": 1,
   "promotion": "DEV_TO_QA",
-  "commit": "REPLACE_WITH_COMMIT_SHA",
+  "commit": "REPLACE_WITH_40_CHARACTER_LOWERCASE_GIT_COMMIT_SHA",
   "artifact_digest": "sha256:REPLACE_WITH_64_LOWERCASE_HEX_CHARACTERS",
   "environment_account": "REPLACE_WITH_DEV_ACCOUNT_AND_REGION",
   "db_schema_version": "NOT_APPLICABLE_OR_VERSION",
