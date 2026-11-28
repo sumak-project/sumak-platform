@@ -51,6 +51,35 @@ class GradleQualityGateTests(unittest.TestCase):
             "Root check must depend on every subproject check",
         )
 
+    def test_architecture_boundary_gate_rejects_production_project_dependencies(self):
+        conventions = (
+            ROOT / "build-logic/src/main/kotlin/sumak.java-conventions.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertIn('tasks.register("architectureBoundaryCheck")', conventions)
+        self.assertRegex(
+            conventions,
+            r'(?s)setOf\("api",\s*"implementation",\s*"compileOnly",\s*"runtimeOnly"\).*?'
+            r"configuration\.allDependencies.*?withType\(ProjectDependency::class\.java\)",
+        )
+        self.assertRegex(
+            conventions,
+            r'(?s)if \(violations\.isNotEmpty\(\)\).*?throw GradleException',
+        )
+        self.assertRegex(
+            conventions,
+            r'(?s)tasks\.named\("check"\).*?dependsOn\(architectureBoundaryCheck\)',
+        )
+
+    def test_architecture_boundary_gate_has_opt_in_negative_fixture(self):
+        conventions = (
+            ROOT / "build-logic/src/main/kotlin/sumak.java-conventions.gradle.kts"
+        ).read_text(encoding="utf-8")
+        self.assertIn(
+            'gradleProperty("architectureBoundaryCheck.injectProjectDependency")',
+            conventions,
+        )
+        self.assertIn("[negative test]", conventions)
+
 
 if __name__ == "__main__":
     unittest.main()

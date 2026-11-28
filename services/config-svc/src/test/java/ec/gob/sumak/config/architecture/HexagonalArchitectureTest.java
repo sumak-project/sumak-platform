@@ -1,6 +1,7 @@
 package ec.gob.sumak.config.architecture;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
@@ -65,6 +66,26 @@ class HexagonalArchitectureTest {
             "jakarta.persistence..",
             "org.hibernate..",
             "org.apache.kafka..")
+        .allowEmptyShould(true)
+        .check(classes);
+  }
+
+  @Test
+  void serviceDoesNotImportForeignSumakModules() {
+    noClasses()
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("ec.gob.sumak.identity..", "ec.gob.sumak.gateway..")
+        .allowEmptyShould(true)
+        .check(classes);
+  }
+
+  @Test
+  void packageDependencyGraphIsAcyclic() {
+    slices()
+        .matching(ROOT + ".(*)..")
+        .should()
+        .beFreeOfCycles()
         .allowEmptyShould(true)
         .check(classes);
   }
