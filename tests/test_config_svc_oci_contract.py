@@ -17,6 +17,13 @@ class ConfigServiceOciContractTest(unittest.TestCase):
             "config-svc must provide a Dockerfile defining its OCI runtime contract",
         )
         dockerfile = DOCKERFILE.read_text(encoding="utf-8")
+        self.assertRegex(
+            dockerfile,
+            r"(?ms)^FROM\s+\$\{RUNTIME_IMAGE\}\s+AS\s+runtime\s*$"
+            r".*?^RUN\s+apk\s+add\s+--no-cache\s+"
+            r"zlib=1\.4-r0\s+expat=2\.11\.0-r0\s*$",
+            "runtime must install the explicitly pinned, remediated Alpine packages",
+        )
         self.assertRegex(dockerfile, r"(?m)^USER\s+(?:10001(?::10001)?|[A-Za-z_][\w.-]*)\s*$")
         self.assertRegex(dockerfile, r"(?m)^HEALTHCHECK\s+(?!NONE\b).+")
         for endpoint in ("/health/live", "/health/ready", "/health/startup"):

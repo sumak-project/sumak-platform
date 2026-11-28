@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static security-boundary checks for the DEV identity ECR repository."""
+"""Static security-boundary checks for the DEV service ECR repositories."""
 
 from __future__ import annotations
 
@@ -43,12 +43,17 @@ class DevEcrRepositoryBoundaryTests(unittest.TestCase):
             for path in ROOT.glob("*.tf")
         )
 
-    def test_only_identity_service_is_instantiated_for_dev_account(self):
+    def test_config_and_identity_services_are_instantiated_for_dev_account(self):
         self.assertIn(f'allowed_account_ids = ["{ACCOUNT_ID}"]', self.root_sources)
         self.assertRegex(self.root_sources, r'Environment\s*=\s*"dev"')
         modules = re.findall(r'module\s+"([^"]+)"', self.root_sources)
-        self.assertEqual(modules, ["identity_ecr"])
+        self.assertEqual(modules, ["identity_ecr", "config_ecr"])
         self.assertIn("identity-svc", self.root_sources)
+        self.assertIn('repository_name = "sumak/dev/identity-svc"', self.root_sources)
+        self.assertIn("config-svc", self.root_sources)
+        self.assertIn('repository_name = "sumak/dev/config-svc"', self.root_sources)
+        self.assertNotIn("aws_ecr_repository_policy", self.root_sources)
+        self.assertNotRegex(self.root_sources, r"(?m)^\s*policy\s*=")
 
     def test_repository_is_private_immutable_scanned_and_encrypted(self):
         repositories = resource_blocks(self.module_main, "aws_ecr_repository")
