@@ -200,6 +200,29 @@ jobs:
           python3 contracts/executable/tools/compatibilidad.py
           node contracts/executable/tools/validar.cjs
           python3 contracts/executable/tools/revisar_estructura.py
+          (
+            cd contracts/executable
+            python3 -m unittest discover -s tests -v
+          )
+      - name: Require official contract compiler prerequisites
+        id: official_compiler_checks
+        if: needs.changes.result == 'success' && needs.changes.outputs.contract_changed == 'true'
+        env:
+          GITHUB_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          python3 scripts/ci/check_official_contract_compilers.py \
+            --root . \
+            --manifest contracts/executable/validacion/compiler-manifest.json \
+            --evidence "$RUNNER_TEMP/official-contract-compiler-evidence.json"
+      - name: Upload official compiler prerequisite evidence
+        if: always() && needs.changes.result == 'success' && needs.changes.outputs.contract_changed == 'true'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: official-contract-compiler-evidence-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/official-contract-compiler-evidence.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate branch name and PR title
         env:
           BRANCH_NAME: ${{ github.head_ref }}
@@ -249,6 +272,7 @@ jobs:
           CONTRACT_CHANGED: ${{ needs.changes.outputs.contract_changed }}
           GRADLE_CHANGED: ${{ needs.changes.outputs.gradle_changed }}
           CONTRACT_CHECK_OUTCOME: ${{ steps.contract_checks.outcome }}
+          OFFICIAL_COMPILER_OUTCOME: ${{ steps.official_compiler_checks.outcome }}
           GRADLE_CHECK_OUTCOME: ${{ steps.gradle_checks.outcome }}
         run: |
           if [[ "$ROUTING_RESULT" != "success" \
@@ -261,8 +285,16 @@ jobs:
             echo "::error::BLOCKED: required contract validation did not complete successfully"
             exit 1
           fi
+          if [[ "$CONTRACT_CHANGED" == "true" && "$OFFICIAL_COMPILER_OUTCOME" != "success" ]]; then
+            echo "::error::BLOCKED_CONTRACT: official compiler prerequisites or execution are incomplete"
+            exit 1
+          fi
           if [[ "$CONTRACT_CHANGED" == "false" && "$CONTRACT_CHECK_OUTCOME" != "skipped" ]]; then
             echo "::error::BLOCKED: contract validation ran without an explicit contract change"
+            exit 1
+          fi
+          if [[ "$CONTRACT_CHANGED" == "false" && "$OFFICIAL_COMPILER_OUTCOME" != "skipped" ]]; then
+            echo "::error::BLOCKED_CONTRACT: official compiler gate ran without an explicit contract change"
             exit 1
           fi
           if [[ "$GRADLE_CHANGED" == "true" && "$GRADLE_CHECK_OUTCOME" != "success" ]]; then
