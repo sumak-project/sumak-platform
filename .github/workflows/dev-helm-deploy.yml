@@ -1,0 +1,214 @@
+name: Deploy approved config-svc digest to DEV
+
+on:
+  workflow_dispatch:
+    inputs:
+      authorization:
+        description: "Type DEPLOY-DEV to authorize this manual DEV deployment"
+        required: true
+        type: string
+      image_digest:
+        description: "Approved immutable ECR digest (sha256: followed by 64 lowercase hex characters)"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dev-helm-config-svc-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  EXPECTED_AWS_ACCOUNT_ID: "632080579751"
+  ECR_REPOSITORY: sumak/dev/config-svc
+  EKS_CLUSTER: sumak-dev
+  KUBE_NAMESPACE: sumak-dev
+  HELM_RELEASE: config-svc
+  HELM_CHART: infra/helm/service
+  HELM_VALUES: config/dev/config-svc-values.yaml
+
+jobs:
+  deploy:
+    name: Deploy approved immutable digest
+    runs-on: ubuntu-latest
+    environment: dev
+    timeout-minutes: 30
+    steps:
+      - name: Require explicit manual authorization and digest
+        env:
+          AUTHORIZATION: ${{ inputs.authorization }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+          if [[ "$AUTHORIZATION" != "DEPLOY-DEV" ]]; then
+            echo "::error::Manual DEV deployment authorization was not provided"
+            exit 1
+          fi
+          if [[ ! "$IMAGE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::image_digest must be an immutable sha256 digest"
+            exit 1
+          fi
+
+      - name: Check out the authorized revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Verify deployment tools
+        run: |
+          set -euo pipefail
+          aws --version
+          kubectl version --client
+          helm version --short
+
+      - name: Verify temporary DEV identity and approved ECR digest
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" || -z "$AWS_SESSION_TOKEN" ]]; then
+            echo "::error::BLOCKED_PERMISSIONS: temporary DEV credentials are required"
+            exit 1
+          fi
+          actual_account_id="$(aws sts get-caller-identity --query Account --output text)"
+          if [[ "$actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID" ]]; then
+            echo "::error::BLOCKED_PERMISSIONS: identity is not in the approved DEV account"
+            exit 1
+          fi
+          observed_digest="$(aws ecr describe-images \
+            --region "$AWS_REGION" \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids imageDigest="$IMAGE_DIGEST" \
+            --query 'imageDetails[0].imageDigest' \
+            --output text)"
+          if [[ "$observed_digest" != "$IMAGE_DIGEST" ]]; then
+            echo "::error::The requested digest was not observed in the approved DEV repository"
+            exit 1
+          fi
+
+      - name: Connect to the DEV cluster and verify Kubernetes compatibility
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          aws eks update-kubeconfig \
+            --region "$AWS_REGION" \
+            --name "$EKS_CLUSTER" \
+            --alias sumak-dev
+          kubectl config use-context sumak-dev
+          server_minor="$(kubectl version -o json | python3 -c \
+            'import json,sys; print(int(json.load(sys.stdin)["serverVersion"]["minor"].rstrip("+")))')"
+          if (( server_minor < 32 || server_minor > 37 )); then
+            echo "::error::Kubernetes minor ${server_minor} is outside the reviewed DEV range 1.32-1.37"
+            exit 1
+          fi
+          printf 'KUBE_MINOR=%s\n' "$server_minor" >> "$GITHUB_ENV"
+
+      - name: Deploy with bounded automatic rollback
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          set -euo pipefail
+          kubectl create namespace "$KUBE_NAMESPACE" \
+            --dry-run=client \
+            -o yaml | kubectl apply -f -
+          if helm status "$HELM_RELEASE" --namespace "$KUBE_NAMESPACE" >/dev/null 2>&1; then
+            previous_revision="$(helm status "$HELM_RELEASE" \
+              --namespace "$KUBE_NAMESPACE" \
+              --output json | python3 -c \
+              'import json,sys; print(json.load(sys.stdin)["version"])')"
+            printf 'PREVIOUS_REVISION=%s\n' "$previous_revision" >> "$GITHUB_ENV"
+          else
+            printf 'PREVIOUS_REVISION=0\n' >> "$GITHUB_ENV"
+          fi
+          helm upgrade "$HELM_RELEASE" "$HELM_CHART" \
+            --install \
+            --namespace "$KUBE_NAMESPACE" \
+            --values "$HELM_VALUES" \
+            --set-string "image.digest=$IMAGE_DIGEST" \
+            --atomic \
+            --cleanup-on-fail \
+            --wait \
+            --timeout 10m \
+            --history-max 5
+          kubectl rollout status \
+            "deployment/$HELM_RELEASE" \
+            --namespace "$KUBE_NAMESPACE" \
+            --timeout=5m
+
+      - name: Verify post-deployment health
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+        run: |
+          set -euo pipefail
+          rollback_after_failed_health_check() {
+            trap - ERR
+            echo "::warning::Post-deployment health failed; restoring the previous release state"
+            if (( PREVIOUS_REVISION > 0 )); then
+              helm rollback "$HELM_RELEASE" "$PREVIOUS_REVISION" \
+                --namespace "$KUBE_NAMESPACE" \
+                --wait \
+                --timeout 10m
+            else
+              helm uninstall "$HELM_RELEASE" \
+                --namespace "$KUBE_NAMESPACE" \
+                --wait \
+                --timeout 5m
+            fi
+          }
+          trap rollback_after_failed_health_check ERR
+          kubectl port-forward \
+            --namespace "$KUBE_NAMESPACE" \
+            "service/$HELM_RELEASE" \
+            18080:8080 >"$RUNNER_TEMP/config-svc-port-forward.log" 2>&1 &
+          forward_pid=$!
+          trap 'kill "$forward_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..15}; do
+            if curl --fail --silent --show-error \
+              --max-time 5 http://127.0.0.1:18080/health/ready >/dev/null; then
+              break
+            fi
+            if (( attempt == 15 )); then
+              echo "::error::Post-deployment readiness verification failed"
+              exit 1
+            fi
+            sleep 2
+          done
+          curl --fail --silent --show-error \
+            --max-time 5 http://127.0.0.1:18080/health/live >/dev/null
+
+      - name: Record sanitized deployment evidence
+        if: ${{ always() }}
+        env:
+          IMAGE_DIGEST: ${{ inputs.image_digest }}
+        run: |
+          {
+            echo "## DEV Helm deployment evidence"
+            echo
+            echo "- Workflow result: \`${{ job.status }}\`"
+            echo "- Dispatcher: \`${GITHUB_ACTOR}\`"
+            echo "- Revision: \`${GITHUB_SHA}\`"
+            echo "- Environment: protected \`dev\`"
+            echo "- Region: \`${AWS_REGION}\`"
+            echo "- EKS cluster: \`${EKS_CLUSTER}\`"
+            echo "- Namespace: \`${KUBE_NAMESPACE}\`"
+            echo "- Release: \`${HELM_RELEASE}\`"
+            echo "- Repository: \`${ECR_REPOSITORY}\`"
+            echo "- Approved digest: \`${IMAGE_DIGEST}\`"
+            echo "- Kubernetes minor: \`${KUBE_MINOR:-NOT_OBSERVED}\`"
+            echo "- Rollback behavior: Helm atomic rollback and failed-install cleanup"
+            echo "- Forward fix: dispatch this workflow again with a newly approved digest"
+            echo "- Credentials and application payloads: sanitized"
+          } >> "$GITHUB_STEP_SUMMARY"
