@@ -5,5 +5,20 @@ spring:
 management:
   endpoints:
     web:
+      base-path: /
+      path-mapping:
+        health: health
       exposure:
         include: health,info
+  endpoint:
+    health:
+      show-details: never
+      probes:
+        enabled: true
+      group:
+        live:
+          include: livenessState
+        ready:
+          include: readinessState
+        startup:
+          include: livenessState

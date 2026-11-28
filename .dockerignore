@@ -1,0 +1,13 @@
+.git
+.github
+.gradle
+.idea
+.opencode
+docs
+infra
+config
+tests
+**/build
+**/.gradle
+**/*.log
+**/.DS_Store
