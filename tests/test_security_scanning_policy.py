@@ -68,16 +68,24 @@ class SecurityScanningPolicyTests(unittest.TestCase):
         self.assertRegex(source, r"(?i)(--error|error)")
         self.assertRegex(source, r"(?i)(continue-on-error:\s*false|set -e)")
 
-    def test_dependency_resolve_and_rootfs_scan_are_conditional_on_safe_diff_detector(self):
+    def test_dependency_resolve_and_rootfs_scan_use_centralized_safe_detector(self):
         source = self.source
         self.assertRegex(source, r"(?m)^\s+fetch-depth:\s*0\s*$")
         self.assertRegex(source, r"(?m)^\s+BASE_SHA:\s*\$\{\{\s*github\.event\.pull_request\.base\.sha\s*\}\}")
         self.assertRegex(source, r"(?m)^\s+HEAD_SHA:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}")
-        self.assertRegex(source, r"(?is)(gradle|dependency).{0,300}(build\.gradle|settings\.gradle|gradle\.properties|gradle/libs\.versions\.toml|gradle\.lockfile)")
+        self.assertIn("scripts/ci/detect_changes.py", source)
+        self.assertIn("gradle_dependency_inputs_changed", source)
+        detector = ROOT / "scripts/ci/detect_changes.py"
+        implementation = detector.read_text(encoding="utf-8")
+        self.assertIn("GRADLE_SHARED_INPUTS", implementation)
+        self.assertIn('name.endswith((".gradle", ".gradle.kts"))', implementation)
+        self.assertIn('"gradle/wrapper/"', implementation)
+        self.assertIn('"/gradle/dependency-locks/"', implementation)
+        self.assertIn('"gradle/libs.versions.toml"', implementation)
         steps = re.split(r"(?m)^\s{6}- name:", source)
         for fragment in steps:
             if re.search(r"(?i)(resolve reviewed gradle dependencies|reject high or critical dependency vulnerabilities)", fragment):
-                self.assertRegex(fragment, r"(?m)^\s+if:\s*")
+                self.assertRegex(fragment, r"(?m)^\s+if:\s*steps\.dependency-changes\.outputs\.gradle_dependency_inputs_changed\s*==\s*['\"]true['\"]")
         self.assertRegex(source, r"(?i)no reviewed gradle dependency inputs changed")
         self.assertNotRegex(source, r"(?i)dependency-review-action")
 

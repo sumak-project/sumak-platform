@@ -8,8 +8,35 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    name: Route reviewed changes
+    runs-on: ubuntu-latest
+    outputs:
+      terraform_changed: ${{ steps.route.outputs.terraform_changed }}
+      contract_changed: ${{ steps.route.outputs.contract_changed }}
+      gradle_changed: ${{ steps.route.outputs.gradle_changed }}
+      gradle_tasks: ${{ steps.route.outputs.gradle_tasks }}
+    steps:
+      - name: Check out the reviewed commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Detect and route reviewed paths
+        id: route
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          scripts/ci/detect_changes.py \
+            --base "$BASE_SHA" \
+            --head "$HEAD_SHA" \
+            --github-output "$GITHUB_OUTPUT"
+
   terraform:
     name: Terraform quality gates
+    needs: changes
+    if: always()
     runs-on: ubuntu-latest
     continue-on-error: false
     strategy:
@@ -21,15 +48,18 @@ jobs:
       AWS_REGION: us-east-1
     steps:
       - name: Check out the reviewed commit
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
           persist-credentials: false
       - name: Set up Terraform
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: "1.10.5"
       - name: Prepare isolated Terraform cache
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         run: |
           set -euo pipefail
           plugin_cache_dir="$RUNNER_TEMP/terraform-plugin-cache"
@@ -42,8 +72,10 @@ jobs:
           disable_checkpoint = true
           EOF
       - name: Check Terraform formatting
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         run: terraform fmt -check -recursive infra
       - name: Initialize and validate Terraform roots
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         run: |
           set -euo pipefail
           mapfile -t roots < <(find infra/accounts -name versions.tf -type f -print | sort)
@@ -59,6 +91,7 @@ jobs:
             terraform -chdir="$root" validate
           done
       - name: Scan Terraform security and policy
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: config
@@ -66,25 +99,8 @@ jobs:
           severity: HIGH,CRITICAL
           exit-code: "1"
           hide-progress: true
-      - name: Detect reviewed Terraform source changes
-        id: terraform-changes
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: |
-          set -euo pipefail
-          changed=false
-          while IFS= read -r path; do
-            case "$path" in
-              infra/accounts/*.tf|infra/modules/*.tf)
-                changed=true
-                break
-                ;;
-            esac
-          done < <(git diff --name-only --diff-filter=ACMRT "$BASE_SHA" "$HEAD_SHA" -- infra/accounts infra/modules)
-          printf 'changed=%s\n' "$changed" >> "$GITHUB_OUTPUT"
       - name: Create reviewed Terraform plans
-        if: steps.terraform-changes.outputs.changed == 'true'
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
@@ -127,15 +143,27 @@ jobs:
               -out="$plan_dir/$root_id.tfplan"
           done
       - name: Upload limited-retention Terraform plans
-        if: steps.terraform-changes.outputs.changed == 'true'
+        if: needs.changes.result == 'success' && needs.changes.outputs.terraform_changed == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: terraform-plans-${{ github.event.pull_request.head.sha }}
           path: ${{ runner.temp }}/terraform-plans/*.tfplan
           if-no-files-found: error
           retention-days: 1
+      - name: Require a resolved Terraform routing decision
+        if: always()
+        env:
+          ROUTING_RESULT: ${{ needs.changes.result }}
+          TERRAFORM_CHANGED: ${{ needs.changes.outputs.terraform_changed }}
+        run: |
+          if [[ "$ROUTING_RESULT" != "success" || ! "$TERRAFORM_CHANGED" =~ ^(true|false)$ ]]; then
+            echo "::error::BLOCKED: Terraform checks require a successful, explicit path-routing decision"
+            exit 1
+          fi
 
   validate:
+    needs: changes
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Check out the reviewed commit
@@ -161,6 +189,8 @@ jobs:
         with:
           node-version: "20"
       - name: Run deterministic contract checks
+        id: contract_checks
+        if: needs.changes.result == 'success' && needs.changes.outputs.contract_changed == 'true'
         run: |
           set -euo pipefail
           python3 contracts/catalog/api-migration/generate_matrix.py --check
@@ -192,6 +222,41 @@ jobs:
           fi
           echo "PR title OK: $PR_TITLE"
       - name: Check Gradle project
-        run: ./gradlew check --no-daemon
+        id: gradle_checks
+        if: needs.changes.result == 'success' && needs.changes.outputs.gradle_changed == 'true'
+        env:
+          GRADLE_TASKS: ${{ needs.changes.outputs.gradle_tasks }}
+        run: ./gradlew $GRADLE_TASKS --no-daemon
       - name: Test quality gate policy
         run: python3 -m unittest discover -s tests -v
+      - name: Require a resolved validation routing decision
+        if: always()
+        env:
+          ROUTING_RESULT: ${{ needs.changes.result }}
+          CONTRACT_CHANGED: ${{ needs.changes.outputs.contract_changed }}
+          GRADLE_CHANGED: ${{ needs.changes.outputs.gradle_changed }}
+          CONTRACT_CHECK_OUTCOME: ${{ steps.contract_checks.outcome }}
+          GRADLE_CHECK_OUTCOME: ${{ steps.gradle_checks.outcome }}
+        run: |
+          if [[ "$ROUTING_RESULT" != "success" \
+            || ! "$CONTRACT_CHANGED" =~ ^(true|false)$ \
+            || ! "$GRADLE_CHANGED" =~ ^(true|false)$ ]]; then
+            echo "::error::BLOCKED: validation did not receive successful, explicit path-routing decisions"
+            exit 1
+          fi
+          if [[ "$CONTRACT_CHANGED" == "true" && "$CONTRACT_CHECK_OUTCOME" != "success" ]]; then
+            echo "::error::BLOCKED: required contract validation did not complete successfully"
+            exit 1
+          fi
+          if [[ "$CONTRACT_CHANGED" == "false" && "$CONTRACT_CHECK_OUTCOME" != "skipped" ]]; then
+            echo "::error::BLOCKED: contract validation ran without an explicit contract change"
+            exit 1
+          fi
+          if [[ "$GRADLE_CHANGED" == "true" && "$GRADLE_CHECK_OUTCOME" != "success" ]]; then
+            echo "::error::BLOCKED: required Gradle validation did not complete successfully"
+            exit 1
+          fi
+          if [[ "$GRADLE_CHANGED" == "false" && "$GRADLE_CHECK_OUTCOME" != "skipped" ]]; then
+            echo "::error::BLOCKED: Gradle validation ran without an explicit Gradle change"
+            exit 1
+          fi
