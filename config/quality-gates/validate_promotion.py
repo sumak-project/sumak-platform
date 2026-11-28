@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Any
 
 
-MANDATORY_GATES = {
+POLICY_PATH = Path(__file__).with_name("gate-policy.json")
+EXPECTED_MANDATORY_GATES = {
     "unit",
     "architecture",
     "integration",
@@ -20,18 +21,21 @@ MANDATORY_GATES = {
     "security",
     "load_stress",
 }
-
-ALLOWED_STATUSES = {
+EXPECTED_BLOCKING_STATUSES = {
     "NOT_RUN",
-    "PASS",
     "FAIL",
+    "PENDING",
+    "SKIPPED",
+    "CANCELLED",
     "BLOCKED_PERMISSIONS",
     "BLOCKED_CAPACITY",
     "BLOCKED_CONTRACT",
     "WAIVED_WITH_ADR",
 }
+EXPECTED_PASS_EVIDENCE_FIELDS = {"command", "observed_result", "evidence"}
 
 SHA256_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+GIT_COMMIT_SHA = re.compile(r"^[0-9a-f]{40}$")
 ISO_8601_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
@@ -54,12 +58,75 @@ def _is_iso_8601_utc(value: str) -> bool:
     return True
 
 
+def _load_policy() -> Any:
+    try:
+        return json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def validate_policy(policy: Any) -> list[str]:
+    """Validate the immutable six-gate policy used by PR and promotion checks."""
+    if not isinstance(policy, dict):
+        return ["gate policy must be a JSON object"]
+
+    errors: list[str] = []
+    if policy.get("schema_version") != 1:
+        errors.append("'schema_version' must be 1")
+    if policy.get("promotion") != "DEV_TO_QA":
+        errors.append("'promotion' must be 'DEV_TO_QA'")
+    if policy.get("pr_target") != "dev":
+        errors.append("'pr_target' must be 'dev'")
+    if policy.get("required_status") != "PASS":
+        errors.append("'required_status' must be 'PASS'")
+
+    gates = policy.get("mandatory_gates")
+    if not isinstance(gates, list) or len(gates) != len(set(gates)):
+        errors.append("'mandatory_gates' must be an array of unique identifiers")
+    elif set(gates) != EXPECTED_MANDATORY_GATES:
+        errors.append("'mandatory_gates' must contain the canonical six gates")
+
+    blocking_statuses = policy.get("blocking_statuses")
+    if (
+        not isinstance(blocking_statuses, list)
+        or len(blocking_statuses) != len(set(blocking_statuses))
+    ):
+        errors.append("'blocking_statuses' must be an array of unique statuses")
+    elif set(blocking_statuses) != EXPECTED_BLOCKING_STATUSES:
+        errors.append("'blocking_statuses' must contain every fail-closed status")
+
+    evidence_fields = policy.get("pass_evidence_fields")
+    if (
+        not isinstance(evidence_fields, list)
+        or set(evidence_fields) != EXPECTED_PASS_EVIDENCE_FIELDS
+    ):
+        errors.append(
+            "'pass_evidence_fields' must require command, observed_result, and evidence"
+        )
+    return errors
+
+
+GATE_POLICY = _load_policy()
+MANDATORY_GATES = frozenset(
+    GATE_POLICY.get("mandatory_gates", []) if isinstance(GATE_POLICY, dict) else []
+)
+BLOCKING_STATUSES = frozenset(
+    GATE_POLICY.get("blocking_statuses", []) if isinstance(GATE_POLICY, dict) else []
+)
+ALLOWED_STATUSES = BLOCKING_STATUSES | {"PASS"}
+PASS_EVIDENCE_FIELDS = frozenset(
+    GATE_POLICY.get("pass_evidence_fields", [])
+    if isinstance(GATE_POLICY, dict)
+    else []
+)
+
+
 def validate(document: Any) -> list[str]:
     """Return every validation error; an empty list means promotion is allowed."""
     if not isinstance(document, dict):
         return ["evidence must be a JSON object"]
 
-    errors: list[str] = []
+    errors = [f"invalid gate policy: {error}" for error in validate_policy(GATE_POLICY)]
     if document.get("version") != 1:
         errors.append("'version' must be 1")
     if document.get("promotion") != "DEV_TO_QA":
@@ -80,6 +147,14 @@ def validate(document: Any) -> list[str]:
     digest = document.get("artifact_digest")
     if _non_empty_string(digest) and not SHA256_DIGEST.fullmatch(digest):
         errors.append("'artifact_digest' must be a lowercase sha256 digest")
+
+    commit = document.get("commit")
+    if _non_empty_string(commit) and not GIT_COMMIT_SHA.fullmatch(commit):
+        errors.append("'commit' must be a full lowercase 40-character Git SHA")
+
+    executed_at = document.get("executed_at")
+    if _non_empty_string(executed_at) and not _is_iso_8601_utc(executed_at):
+        errors.append("'executed_at' must be an ISO 8601 UTC timestamp")
 
     approval = document.get("manual_approval")
     if not isinstance(approval, dict):
@@ -122,7 +197,7 @@ def validate(document: Any) -> list[str]:
             continue
 
         if status == "PASS":
-            for field in ("command", "observed_result", "evidence"):
+            for field in sorted(PASS_EVIDENCE_FIELDS):
                 value = gate.get(field)
                 if field == "evidence":
                     if not isinstance(value, list) or not value or not all(
@@ -141,6 +216,9 @@ def validate(document: Any) -> list[str]:
                 for field in ("adr", "reason", "approved_by", "approved_at"):
                     if not _non_empty_string(waiver.get(field)):
                         errors.append(f"{prefix}.waiver.{field} is required")
+            errors.append(
+                f"mandatory gate '{gate_id}' has blocking status '{status}'"
+            )
         else:
             errors.append(
                 f"mandatory gate '{gate_id}' has blocking status '{status}'"
@@ -157,8 +235,31 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Block DEV-to-QA promotion unless mandatory gates pass and manual approval is recorded."
     )
-    parser.add_argument("evidence", type=Path, help="path to promotion evidence JSON")
+    parser.add_argument(
+        "evidence", nargs="?", type=Path, help="path to promotion evidence JSON"
+    )
+    parser.add_argument(
+        "--policy-only",
+        action="store_true",
+        help="validate and report the repository six-gate policy",
+    )
     args = parser.parse_args()
+
+    policy_errors = validate_policy(GATE_POLICY)
+    if policy_errors:
+        print("Gate policy blocked:", file=sys.stderr)
+        for error in policy_errors:
+            print(f"- {error}", file=sys.stderr)
+        return 1
+    if args.policy_only:
+        print(
+            "Gate policy valid: "
+            + ", ".join(GATE_POLICY["mandatory_gates"])
+            + "; required status: PASS; target: dev."
+        )
+        return 0
+    if args.evidence is None:
+        parser.error("evidence is required unless --policy-only is used")
 
     try:
         document = json.loads(args.evidence.read_text(encoding="utf-8"))

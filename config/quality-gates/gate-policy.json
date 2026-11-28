@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "promotion": "DEV_TO_QA",
+  "pr_target": "dev",
+  "required_status": "PASS",
+  "mandatory_gates": [
+    "unit",
+    "architecture",
+    "integration",
+    "contract",
+    "security",
+    "load_stress"
+  ],
+  "blocking_statuses": [
+    "NOT_RUN",
+    "FAIL",
+    "PENDING",
+    "SKIPPED",
+    "CANCELLED",
+    "BLOCKED_PERMISSIONS",
+    "BLOCKED_CAPACITY",
+    "BLOCKED_CONTRACT",
+    "WAIVED_WITH_ADR"
+  ],
+  "pass_evidence_fields": [
+    "command",
+    "observed_result",
+    "evidence"
+  ]
+}

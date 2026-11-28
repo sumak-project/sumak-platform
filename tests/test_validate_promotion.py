@@ -23,9 +23,13 @@ MANDATORY_GATES = validate_promotion.MANDATORY_GATES
 BLOCKING_STATUSES = (
     "NOT_RUN",
     "FAIL",
+    "PENDING",
+    "SKIPPED",
+    "CANCELLED",
     "BLOCKED_PERMISSIONS",
     "BLOCKED_CAPACITY",
     "BLOCKED_CONTRACT",
+    "WAIVED_WITH_ADR",
 )
 
 
@@ -43,7 +47,7 @@ def valid_evidence() -> dict[str, Any]:
     return {
         "version": 1,
         "promotion": "DEV_TO_QA",
-        "commit": "abc123",
+        "commit": "a" * 40,
         "artifact_digest": "sha256:" + "a" * 64,
         "environment_account": "account-x",
         "db_schema_version": "v1",
@@ -98,7 +102,7 @@ class ValidatePromotionTests(unittest.TestCase):
                     validate(doc),
                 )
 
-    def test_complete_waiver_is_valid(self):
+    def test_mandatory_gate_waiver_blocks_promotion_even_when_documented(self):
         doc = valid_evidence()
         gate = doc["gates"][0]
         gate["status"] = "WAIVED_WITH_ADR"
@@ -110,7 +114,7 @@ class ValidatePromotionTests(unittest.TestCase):
             "approved_by": "reviewer-1",
             "approved_at": "2026-11-01T00:00:00Z",
         }
-        self.assertEqual(validate(doc), [])
+        self.assertTrue(any("blocking status 'WAIVED_WITH_ADR'" in error for error in validate(doc)))
 
     def test_each_blocking_status_is_rejected(self):
         for status in BLOCKING_STATUSES:
@@ -121,11 +125,15 @@ class ValidatePromotionTests(unittest.TestCase):
                     for field in ("command", "observed_result", "evidence"):
                         gate.pop(field, None)
                 errors = validate(doc)
-                self.assertEqual(len(errors), len(MANDATORY_GATES), (status, errors))
-                self.assertTrue(
-                    all(f"has blocking status '{status}'" in error for error in errors),
-                    errors,
-                )
+                for gate_id in MANDATORY_GATES:
+                    self.assertTrue(
+                        any(
+                            f"mandatory gate '{gate_id}' has blocking status '{status}'"
+                            in error
+                            for error in errors
+                        ),
+                        (status, gate_id, errors),
+                    )
 
     def test_missing_gate_is_rejected(self):
         doc = valid_evidence()
@@ -140,7 +148,7 @@ class ValidatePromotionTests(unittest.TestCase):
 
     def test_unsupported_status_is_rejected(self):
         doc = valid_evidence()
-        doc["gates"][0]["status"] = "PENDING"
+        doc["gates"][0]["status"] = "EXCUSED"
         self.assertIn("gates[0].status is not allowed", validate(doc))
 
     def test_incomplete_pass_evidence_is_rejected(self):
@@ -174,6 +182,65 @@ class ValidatePromotionTests(unittest.TestCase):
                     "'artifact_digest' must be a lowercase sha256 digest",
                     validate(doc),
                 )
+
+    def test_commit_must_be_full_immutable_sha(self):
+        for sha in ("abc123", "g" * 40, "a" * 64, " " + "a" * 40):
+            with self.subTest(sha=sha):
+                doc = valid_evidence()
+                doc["commit"] = sha
+                self.assertTrue(validate(doc), "invalid commit SHA must block")
+
+    def test_execution_timestamp_must_be_valid_utc(self):
+        for timestamp in ("2026-11-23T00:00:00+00:00", "2026-02-30T00:00:00Z", "2026-11-23"):
+            with self.subTest(timestamp=timestamp):
+                doc = valid_evidence()
+                doc["executed_at"] = timestamp
+                self.assertTrue(validate(doc), "invalid execution timestamp must block")
+
+    def test_unknown_status_blocks(self):
+        doc = valid_evidence()
+        doc["gates"][0]["status"] = "EXCUSED"
+        self.assertTrue(validate(doc))
+
+    def test_repository_policy_matches_canonical_fail_closed_contract(self):
+        policy_path = REPO_ROOT / "config" / "quality-gates" / "gate-policy.json"
+        import json
+
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        expected_gates = {
+            "unit", "architecture", "integration", "contract", "security", "load_stress"
+        }
+        self.assertEqual(set(policy["mandatory_gates"]), expected_gates)
+        self.assertEqual(len(policy["mandatory_gates"]), len(expected_gates))
+        self.assertEqual(policy["required_status"], "PASS")
+        self.assertEqual(
+            set(policy["blocking_statuses"]),
+            {
+                "NOT_RUN", "FAIL", "PENDING", "SKIPPED", "CANCELLED",
+                "BLOCKED_PERMISSIONS", "BLOCKED_CAPACITY", "BLOCKED_CONTRACT",
+                "WAIVED_WITH_ADR",
+            },
+        )
+        self.assertEqual(
+            set(policy["pass_evidence_fields"]),
+            {"command", "observed_result", "evidence"},
+        )
+        self.assertEqual(validate_promotion.validate_policy(policy), [])
+
+    def test_policy_validator_rejects_missing_or_duplicate_canonical_gates(self):
+        import json
+
+        policy = json.loads(
+            (REPO_ROOT / "config" / "quality-gates" / "gate-policy.json").read_text()
+        )
+        for gates in (
+            policy["mandatory_gates"][:-1],
+            policy["mandatory_gates"] + [policy["mandatory_gates"][0]],
+        ):
+            with self.subTest(gates=gates):
+                invalid = deepcopy(policy)
+                invalid["mandatory_gates"] = gates
+                self.assertTrue(validate_promotion.validate_policy(invalid))
 
 
 if __name__ == "__main__":

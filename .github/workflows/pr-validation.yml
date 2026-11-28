@@ -221,6 +221,19 @@ jobs:
             exit 1
           fi
           echo "PR title OK: $PR_TITLE"
+      - name: Validate mandatory six-gate policy
+        run: |
+          set -euo pipefail
+          python3 config/quality-gates/validate_promotion.py --policy-only | tee "$RUNNER_TEMP/gate-policy.txt"
+          {
+            echo "## Mandatory quality-gate policy"
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/gate-policy.txt"
+            echo '```'
+            echo
+            echo "Missing, failed, pending, skipped, cancelled, NOT_RUN, blocked, or waived mandatory gate evidence blocks DEV-to-QA promotion."
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: Check Gradle project
         id: gradle_checks
         if: needs.changes.result == 'success' && needs.changes.outputs.gradle_changed == 'true'
