@@ -1,11 +1,32 @@
-variable "cluster_name" {
-  description = "Name of the existing DEV EKS control plane provisioned outside this ticket."
+variable "cluster_role_arn" {
+  description = "ARN of the pre-provisioned Learner Lab EKS cluster role."
   type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws:iam::632080579751:role/(.*/)?[^/]*LabEksClusterRole[^/]*$", var.cluster_role_arn))
+    error_message = "cluster_role_arn must reference the pre-provisioned Learner Lab EKS cluster role in the assigned DEV account."
+  }
+}
+
+variable "cluster_version" {
+  description = "Reviewed Kubernetes minor version for the DEV EKS control plane."
+  type        = string
+  default     = "1.36"
+
+  validation {
+    condition     = contains(["1.32", "1.33", "1.34", "1.35", "1.36", "1.37"], var.cluster_version)
+    error_message = "cluster_version must be one of the reviewed EKS minor versions."
+  }
 }
 
 variable "node_role_arn" {
   description = "ARN of the existing Learner Lab EKS node role."
   type        = string
+
+  validation {
+    condition     = can(regex("^arn:aws:iam::632080579751:role/(.*/)?[^/]*LabEksNodeRole[^/]*$", var.node_role_arn))
+    error_message = "node_role_arn must reference the pre-provisioned Learner Lab EKS node role in the assigned DEV account."
+  }
 }
 
 variable "private_subnet_ids" {
