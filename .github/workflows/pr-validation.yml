@@ -8,6 +8,107 @@ permissions:
   contents: read
 
 jobs:
+  terraform:
+    name: Terraform quality gates
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    strategy:
+      fail-fast: true
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/terraform-plugin-cache
+      TF_CLI_CONFIG_FILE: ${{ runner.temp }}/terraform.tfrc
+      AWS_PROFILE: sumak-dev
+      AWS_REGION: us-east-1
+    steps:
+      - name: Check out the reviewed commit
+        uses: actions/checkout@v4
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.10.5"
+      - name: Prepare isolated Terraform cache
+        run: |
+          set -euo pipefail
+          mkdir -p "$TF_PLUGIN_CACHE_DIR"
+          cat >"$TF_CLI_CONFIG_FILE" <<EOF
+          plugin_cache_dir = "$TF_PLUGIN_CACHE_DIR"
+          disable_checkpoint = true
+          EOF
+      - name: Check Terraform formatting
+        run: terraform fmt -check -recursive infra
+      - name: Initialize and validate Terraform roots
+        run: |
+          set -euo pipefail
+          mapfile -t roots < <(find infra/accounts -name versions.tf -type f -print | sort)
+          if (( ${#roots[@]} == 0 )); then
+            echo "::error::No Terraform account roots were found"
+            exit 1
+          fi
+          for file in "${roots[@]}"; do
+            root="${file%/versions.tf}"
+            root_id="$(printf '%s' "$root" | sha256sum | cut -c1-16)"
+            export TF_DATA_DIR="$RUNNER_TEMP/terraform-data/validate/$root_id"
+            terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$root" validate
+          done
+      - name: Scan Terraform security and policy
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-type: config
+          scan-ref: infra
+          severity: HIGH,CRITICAL
+          exit-code: "1"
+          hide-progress: true
+      - name: Create reviewed Terraform plans
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.SUMAK_DEV_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.SUMAK_DEV_AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.SUMAK_DEV_AWS_SESSION_TOKEN }}
+          EXPECTED_AWS_ACCOUNT_ID: ${{ vars.SUMAK_DEV_AWS_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          credentials_file="$RUNNER_TEMP/sumak-aws-credentials"
+          export AWS_SHARED_CREDENTIALS_FILE="$credentials_file"
+          trap 'rm -f "$credentials_file"' EXIT
+          if [[ -z "$AWS_ACCESS_KEY_ID" || -z "$AWS_SECRET_ACCESS_KEY" || -z "$AWS_SESSION_TOKEN" || -z "$EXPECTED_AWS_ACCOUNT_ID" ]]; then
+            echo "::error::BLOCKED_PERMISSIONS: temporary sumak-dev credentials and expected account ID are required"
+            exit 1
+          fi
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID" --profile sumak-dev
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY" --profile sumak-dev
+          aws configure set aws_session_token "$AWS_SESSION_TOKEN" --profile sumak-dev
+          actual_account_id="$(aws sts get-caller-identity --profile sumak-dev --query Account --output text)"
+          if [[ "$actual_account_id" != "$EXPECTED_AWS_ACCOUNT_ID" ]]; then
+            echo "::error::BLOCKED_PERMISSIONS: STS account does not match the configured sumak-dev account"
+            exit 1
+          fi
+          plan_dir="$RUNNER_TEMP/terraform-plans"
+          mkdir -p "$plan_dir"
+          mapfile -t roots < <(find infra/accounts -name versions.tf -type f -print | sort)
+          if (( ${#roots[@]} == 0 )); then
+            echo "::error::No Terraform account roots were found"
+            exit 1
+          fi
+          for file in "${roots[@]}"; do
+            root="${file%/versions.tf}"
+            root_id="$(printf '%s' "$root" | sha256sum | cut -c1-16)"
+            export TF_DATA_DIR="$RUNNER_TEMP/terraform-data/plan/$root_id"
+            terraform -chdir="$root" init -input=false -lockfile=readonly
+            terraform -chdir="$root" plan \
+              -input=false \
+              -lock=false \
+              -out="$plan_dir/$root_id.tfplan"
+          done
+      - name: Upload limited-retention Terraform plans
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plans-${{ github.event.pull_request.head.sha }}
+          path: ${{ runner.temp }}/terraform-plans/*.tfplan
+          if-no-files-found: error
+          retention-days: 1
+
   validate:
     runs-on: ubuntu-latest
     steps:
