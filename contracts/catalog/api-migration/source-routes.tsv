@@ -1,0 +1,163 @@
+SOURCE_METHOD_PATH	OWNER
+GET /v1/mobile/auth/provider-config	AUTH / identity-svc
+POST /v1/mobile/identity/eligibility-check	AUTH / identity-svc
+POST /v1/mobile/identity/registration-completions	AUTH / identity-svc
+GET /v1/mobile/me	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+PATCH /v1/mobile/me	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+POST /v1/mobile/auth/logout	AUTH / identity-svc
+GET /v1/admin/me	AUTH / identity-svc
+GET /v1/admin/users	AUTH / identity-svc
+POST /v1/admin/users	AUTH / identity-svc
+PATCH /v1/admin/users/{userId}/roles	AUTH / identity-svc
+PATCH /v1/admin/users/{userId}/status	AUTH / identity-svc
+GET /v1/mobile/home	PLAT / bff-mobile (aggregation)
+GET /v1/mobile/me/activity	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/mobile/me/devices	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+POST /v1/mobile/me/devices	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+DELETE /v1/mobile/me/devices/{deviceId}	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/mobile/budget/overview	BUDG / budget-command-svc / budget-query-svc
+GET /v1/mobile/budget/funding-sources	BUDG / budget-command-svc / budget-query-svc
+GET /v1/mobile/budget/allocations	BUDG / budget-command-svc / budget-query-svc
+GET /v1/mobile/budget/programs	BUDG / budget-command-svc / budget-query-svc
+GET /v1/mobile/budget/programs/{programId}	BUDG / budget-command-svc / budget-query-svc
+GET /v1/mobile/works	WORKS / works-command-svc / works-query-svc
+GET /v1/mobile/works/{workId}	WORKS / works-command-svc / works-query-svc
+GET /v1/mobile/works/{workId}/timeline	WORKS / works-command-svc / works-query-svc
+GET /v1/mobile/works/{workId}/media	WORKS / works-command-svc / works-query-svc
+GET /v1/mobile/works/{workId}/complaint-context	WORKS / works-command-svc / works-query-svc
+GET /v1/mobile/works/map	WORKS / works-command-svc / works-query-svc
+POST /v1/mobile/incidents	INC / incident-command-svc / incident-query-svc
+GET /v1/mobile/incidents	INC / incident-command-svc / incident-query-svc
+GET /v1/mobile/incidents/{incidentId}	INC / incident-command-svc / incident-query-svc
+GET /v1/mobile/incidents/{incidentId}/timeline	INC / incident-command-svc / incident-query-svc
+GET /v1/mobile/voting/processes/current	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/mobile/voting/processes	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/mobile/voting/processes/{processId}	VOTE / vote-command-svc / vote-tally-svc
+POST /v1/mobile/voting/processes/{processId}/participations	VOTE / vote-command-svc / vote-tally-svc
+POST /v1/mobile/voting/ballots	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/mobile/voting/receipts/{receiptId}	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/mobile/voting/processes/{processId}/results	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/mobile/surveys	SURV / survey-fn
+GET /v1/mobile/surveys/{surveyId}	SURV / survey-fn
+POST /v1/mobile/surveys/{surveyId}/answers	SURV / survey-fn
+GET /v1/mobile/surveys/{surveyId}/my-answer	SURV / survey-fn
+GET /v1/mobile/meetings	MEET / meeting-fn
+GET /v1/mobile/meetings/{meetingId}	MEET / meeting-fn
+POST /v1/mobile/meetings/{meetingId}/attendance	MEET / meeting-fn
+GET /v1/mobile/meetings/{meetingId}/minutes	MEET / meeting-fn
+GET /v1/mobile/meetings/{meetingId}/calendar-link	MEET / meeting-fn
+GET /v1/mobile/news	NEWS / news-fn
+GET /v1/mobile/news/{newsId}	NEWS / news-fn
+GET /v1/mobile/news/{newsId}/audio	NEWS / news-fn
+GET /v1/mobile/search	SRCH / search-query-svc / search-indexer-fn
+GET /v1/mobile/search/suggestions	SRCH / search-query-svc / search-indexer-fn
+GET /v1/mobile/notifications	NOTIF / notification-svc
+PATCH /v1/mobile/notifications/{notificationId}/read	NOTIF / notification-svc
+PATCH /v1/mobile/notification-preferences	NOTIF / notification-svc
+POST /v1/mobile/realtime/connection-tickets	PLAT / api-gateway / bff-mobile / bff-admin
+POST /v1/mobile/media/upload-intents	MEDIA / media-svc
+GET /v1/mobile/media/{mediaId}	MEDIA / media-svc
+GET /v1/mobile/sync/pull	PLAT / api-gateway / bff-mobile / bff-admin
+POST /v1/mobile/sync/push	PLAT / api-gateway / bff-mobile / bff-admin
+GET /v1/admin/dashboard	PLAT / bff-admin (aggregation)
+GET /v1/admin/config	CFG / config-svc
+GET /v1/admin/config/age-thresholds	CFG / config-svc
+PATCH /v1/admin/config/age-thresholds	CFG / config-svc
+GET /v1/admin/config/territory	CFG / config-svc
+PUT /v1/admin/config/territory/boundaries	CFG / config-svc
+GET /v1/admin/config/feature-availability	CFG / config-svc
+GET /v1/admin/registry/imports	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+POST /v1/admin/registry/imports	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/admin/registry/imports/{jobId}	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/admin/citizens	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/admin/citizens/{citizenId}	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/admin/fiscal-years	BUDG / budget-command-svc / budget-query-svc
+POST /v1/admin/fiscal-years	BUDG / budget-command-svc / budget-query-svc
+GET /v1/admin/fiscal-years/{year}	BUDG / budget-command-svc / budget-query-svc
+PATCH /v1/admin/fiscal-years/{year}	BUDG / budget-command-svc / budget-query-svc
+POST /v1/admin/fiscal-years/{year}/closures	BUDG / budget-command-svc / budget-query-svc
+POST /v1/admin/fiscal-years/{year}/reopenings	BUDG / budget-command-svc / budget-query-svc
+GET /v1/admin/fiscal-years/{year}/budget	BUDG / budget-command-svc / budget-query-svc
+PUT /v1/admin/fiscal-years/{year}/budget	BUDG / budget-command-svc / budget-query-svc
+GET /v1/admin/fiscal-years/{year}/protected-funds	BUDG / budget-command-svc / budget-query-svc
+GET /v1/admin/fiscal-years/{year}/programs	BUDG / budget-command-svc / budget-query-svc
+POST /v1/admin/fiscal-years/{year}/programs	BUDG / budget-command-svc / budget-query-svc
+PATCH /v1/admin/programs/{programId}	BUDG / budget-command-svc / budget-query-svc
+POST /v1/admin/budget-reforms	BUDG / budget-command-svc / budget-query-svc
+GET /v1/admin/budget-reforms/{reformId}	BUDG / budget-command-svc / budget-query-svc
+POST /v1/admin/budget-reforms/{reformId}/approvals	BUDG / budget-command-svc / budget-query-svc
+GET /v1/admin/works	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works	WORKS / works-command-svc / works-query-svc
+GET /v1/admin/works/{workId}	WORKS / works-command-svc / works-query-svc
+PATCH /v1/admin/works/{workId}	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works/{workId}/contracts	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works/{workId}/payment-vouchers	WORKS / works-command-svc / works-query-svc
+GET /v1/admin/works/{workId}/payment-vouchers	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works/{workId}/progress-records	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works/{workId}/extensions	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works/{workId}/arrastre-transfers	WORKS / works-command-svc / works-query-svc
+POST /v1/admin/works/{workId}/publication	WORKS / works-command-svc / works-query-svc
+GET /v1/admin/works/{workId}/audit-trail	AUD / audit-ingest-fn / audit-query-svc
+GET /v1/admin/voting/processes	VOTE / vote-command-svc / vote-tally-svc
+POST /v1/admin/voting/processes	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/admin/voting/processes/{processId}	VOTE / vote-command-svc / vote-tally-svc
+PATCH /v1/admin/voting/processes/{processId}	VOTE / vote-command-svc / vote-tally-svc
+POST /v1/admin/voting/processes/{processId}/opening	VOTE / vote-command-svc / vote-tally-svc
+POST /v1/admin/voting/processes/{processId}/closures	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/admin/voting/processes/{processId}/results	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/admin/voting/processes/{processId}/participation-summary	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/admin/incidents	INC / incident-command-svc / incident-query-svc
+GET /v1/admin/incidents/{incidentId}	INC / incident-command-svc / incident-query-svc
+POST /v1/admin/incidents/{incidentId}/assignments	INC / incident-command-svc / incident-query-svc
+PATCH /v1/admin/incidents/{incidentId}/status	INC / incident-command-svc / incident-query-svc
+POST /v1/admin/incidents/{incidentId}/resolution-evidences	INC / incident-command-svc / incident-query-svc
+POST /v1/admin/incidents/{incidentId}/repair-approvals	INC / incident-command-svc / incident-query-svc
+GET /v1/admin/incidents/{incidentId}/timeline	INC / incident-command-svc / incident-query-svc
+GET /v1/admin/news	NEWS / news-fn
+POST /v1/admin/news	NEWS / news-fn
+PATCH /v1/admin/news/{newsId}	NEWS / news-fn
+POST /v1/admin/news/{newsId}/publication	NEWS / news-fn
+GET /v1/admin/surveys	SURV / survey-fn
+POST /v1/admin/surveys	SURV / survey-fn
+PATCH /v1/admin/surveys/{surveyId}	SURV / survey-fn
+POST /v1/admin/surveys/{surveyId}/publication	SURV / survey-fn
+GET /v1/admin/surveys/{surveyId}/results	SURV / survey-fn
+GET /v1/admin/meetings	MEET / meeting-fn
+POST /v1/admin/meetings	MEET / meeting-fn
+PATCH /v1/admin/meetings/{meetingId}	MEET / meeting-fn
+POST /v1/admin/meetings/{meetingId}/publication	MEET / meeting-fn
+GET /v1/admin/meetings/{meetingId}/attendance	MEET / meeting-fn
+POST /v1/admin/meetings/{meetingId}/minutes	MEET / meeting-fn
+POST /v1/admin/meetings/{meetingId}/minutes/{minutesId}/approvals	MEET / meeting-fn
+POST /v1/admin/reports	REP / report-svc
+GET /v1/admin/reports	REP / report-svc
+GET /v1/admin/reports/jobs/{jobId}	REP / report-svc
+GET /v1/admin/reports/{reportId}	REP / report-svc
+GET /v1/admin/audit-events	AUD / audit-ingest-fn / audit-query-svc
+GET /v1/admin/search	SRCH / search-query-svc / search-indexer-fn
+GET /v1/admin/ledger/anchors	LEDGER / ledger-svc / ledger-anchor-fn
+POST /v1/admin/ledger/verification-requests	LEDGER / ledger-svc / ledger-anchor-fn
+GET /v1/admin/analytics/datasets	DLAKE / data-lake ETL / authorized publishers
+GET /v1/admin/analytics/datasets/{datasetId}	DLAKE / data-lake ETL / authorized publishers
+POST /v1/admin/analytics/exports	DLAKE / data-lake ETL / authorized publishers
+GET /v1/admin/analytics/jobs/{jobId}	DLAKE / data-lake ETL / authorized publishers
+GET /v1/public/overview	PLAT / api-gateway / bff-mobile / bff-admin
+GET /v1/public/budgets	BUDG / budget-command-svc / budget-query-svc
+GET /v1/public/budgets/{year}/programs	BUDG / budget-command-svc / budget-query-svc
+GET /v1/public/works	WORKS / works-command-svc / works-query-svc
+GET /v1/public/works/{workId}	WORKS / works-command-svc / works-query-svc
+GET /v1/public/news	NEWS / news-fn
+GET /v1/public/news/{newsId}	NEWS / news-fn
+GET /v1/public/meetings	MEET / meeting-fn
+GET /v1/public/meetings/{meetingId}/minutes	MEET / meeting-fn
+GET /v1/public/voting-processes	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/public/voting-processes/{processId}/results	VOTE / vote-command-svc / vote-tally-svc
+GET /v1/public/open-data/datasets	DLAKE / data-lake ETL / authorized publishers
+GET /v1/public/open-data/datasets/{datasetId}	DLAKE / data-lake ETL / authorized publishers
+GET /v1/public/ledger/proofs/{evidenceId}	LEDGER / ledger-svc / ledger-anchor-fn
+GET /v1/public/ledger/transactions/{transactionHash}	LEDGER / ledger-svc / ledger-anchor-fn
+POST /v1/integration/field-progress	AUTO / field-ingest-fn / n8n
+POST /v1/integration/works/{workId}/evidences	WORKS / works-command-svc / works-query-svc
+POST /v1/integration/registry-imports	CIT / citizen-profile-svc / registry-svc / citizen-activity-svc
+GET /v1/integration/jobs/{jobId}	AUTO / field-ingest-fn / n8n
+POST /v1/integration/notifications	NOTIF / notification-svc
