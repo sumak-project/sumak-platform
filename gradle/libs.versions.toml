@@ -1,4 +1,3 @@
 [versions]
-# Candidate documented by the architecture. Gradle and Spring versions remain
-# intentionally unset until their compatibility is validated in dev.
 java = "21"
+spotless = "7.0.2"

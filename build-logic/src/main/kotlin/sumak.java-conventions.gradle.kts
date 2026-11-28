@@ -1,5 +1,6 @@
 plugins {
     java
+    id("com.diffplug.spotless")
 }
 
 java {
@@ -15,4 +16,15 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+}
+
+spotless {
+    ratchetFrom("origin/dev")
+
+    java {
+        googleJavaFormat()
+        removeUnusedImports()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
