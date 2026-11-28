@@ -1,0 +1,46 @@
+rules:
+  - id: sumak.java.process-execution
+    languages: [java]
+    severity: ERROR
+    message: Direct process execution requires a reviewed security design.
+    pattern-either:
+      - pattern: Runtime.getRuntime().exec(...)
+      - pattern: new ProcessBuilder(...)
+
+  - id: sumak.java.weak-message-digest
+    languages: [java]
+    severity: ERROR
+    message: MD5 and SHA-1 are not permitted for security-sensitive hashing.
+    patterns:
+      - pattern: MessageDigest.getInstance($ALGORITHM)
+      - metavariable-regex:
+          metavariable: $ALGORITHM
+          regex: '"(?i:md5|sha-?1)"'
+
+  - id: sumak.java.weak-or-ecb-cipher
+    languages: [java]
+    severity: ERROR
+    message: Weak or ECB cipher configuration is forbidden.
+    patterns:
+      - pattern: Cipher.getInstance($TRANSFORMATION)
+      - metavariable-regex:
+          metavariable: $TRANSFORMATION
+          regex: '"(?i:(des|desede)(/.*)?|[^"]*/ecb/[^"]*)"'
+
+  - id: sumak.python.dynamic-code-execution
+    languages: [python]
+    severity: ERROR
+    message: Dynamic code execution is forbidden in repository tooling.
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: exec(...)
+
+  - id: sumak.python.shell-execution
+    languages: [python]
+    severity: ERROR
+    message: Shell-based subprocess execution requires a reviewed security design.
+    patterns:
+      - pattern: subprocess.$METHOD(..., shell=True, ...)
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: (run|call|check_call|check_output|Popen)

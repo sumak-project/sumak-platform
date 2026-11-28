@@ -23,9 +23,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out the reviewed commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - name: Validate promotion evidence
-        run: python3 config/quality-gates/validate_promotion.py "${{ inputs.evidence-path }}"
+        env:
+          EVIDENCE_PATH: ${{ inputs.evidence-path }}
+        run: python3 config/quality-gates/validate_promotion.py "$EVIDENCE_PATH"
 
   manual-qa-approval:
     name: Manual QA promotion approval
