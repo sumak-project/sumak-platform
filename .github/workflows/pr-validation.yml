@@ -17,8 +17,6 @@ jobs:
     env:
       TF_IN_AUTOMATION: "true"
       TF_INPUT: "false"
-      TF_PLUGIN_CACHE_DIR: ${{ runner.temp }}/terraform-plugin-cache
-      TF_CLI_CONFIG_FILE: ${{ runner.temp }}/terraform.tfrc
       AWS_PROFILE: sumak-dev
       AWS_REGION: us-east-1
     steps:
@@ -31,9 +29,13 @@ jobs:
       - name: Prepare isolated Terraform cache
         run: |
           set -euo pipefail
-          mkdir -p "$TF_PLUGIN_CACHE_DIR"
-          cat >"$TF_CLI_CONFIG_FILE" <<EOF
-          plugin_cache_dir = "$TF_PLUGIN_CACHE_DIR"
+          plugin_cache_dir="$RUNNER_TEMP/terraform-plugin-cache"
+          cli_config_file="$RUNNER_TEMP/terraform.tfrc"
+          mkdir -p "$plugin_cache_dir"
+          printf 'TF_PLUGIN_CACHE_DIR=%s\n' "$plugin_cache_dir" >> "$GITHUB_ENV"
+          printf 'TF_CLI_CONFIG_FILE=%s\n' "$cli_config_file" >> "$GITHUB_ENV"
+          cat >"$cli_config_file" <<EOF
+          plugin_cache_dir = "$plugin_cache_dir"
           disable_checkpoint = true
           EOF
       - name: Check Terraform formatting
