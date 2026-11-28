@@ -9,6 +9,12 @@
   "synthetic_dataset": "REPLACE_WITH_VERSIONED_SYNTHETIC_DATASET",
   "executed_at": "REPLACE_WITH_ISO_8601_TIMESTAMP",
   "reviewer": "REPLACE_WITH_AUTHORIZED_REVIEWER",
+  "manual_approval": {
+    "decision": "NOT_APPROVED",
+    "approved_by": "REPLACE_WITH_AUTHORIZED_APPROVER",
+    "approved_at": "REPLACE_WITH_ISO_8601_UTC_TIMESTAMP",
+    "evidence": "REPLACE_WITH_GITHUB_ENVIRONMENT_APPROVAL_RUN_URL"
+  },
   "gates": [
     { "id": "unit", "status": "NOT_RUN" },
     { "id": "architecture", "status": "NOT_RUN" },

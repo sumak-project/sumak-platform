@@ -51,6 +51,12 @@ def valid_evidence() -> dict[str, Any]:
         "synthetic_dataset": "ds-v1",
         "executed_at": "2026-11-23T00:00:00Z",
         "reviewer": "reviewer-1",
+        "manual_approval": {
+            "decision": "APPROVED",
+            "approved_by": "qa-approver-1",
+            "approved_at": "2026-11-23T01:02:03Z",
+            "evidence": "approval://qa/SCRUM-49",
+        },
         "gates": gates,
     }
 
@@ -58,6 +64,39 @@ def valid_evidence() -> dict[str, Any]:
 class ValidatePromotionTests(unittest.TestCase):
     def test_all_pass_evidence_is_valid(self):
         self.assertEqual(validate(valid_evidence()), [])
+
+    def test_missing_or_invalid_manual_approval_is_rejected(self):
+        cases = (
+            ("missing object", None, "'manual_approval' must be an object"),
+            ("missing decision", {"approved_by": "person", "approved_at": "2026-11-23T01:02:03Z", "evidence": "approval://1"}, "'manual_approval.decision' must be 'APPROVED'"),
+            ("rejected decision", {"decision": "REJECTED", "approved_by": "person", "approved_at": "2026-11-23T01:02:03Z", "evidence": "approval://1"}, "'manual_approval.decision' must be 'APPROVED'"),
+            ("blank approver", {"decision": "APPROVED", "approved_by": " ", "approved_at": "2026-11-23T01:02:03Z", "evidence": "approval://1"}, "'manual_approval.approved_by' must be a non-empty string"),
+            ("blank timestamp", {"decision": "APPROVED", "approved_by": "person", "approved_at": "", "evidence": "approval://1"}, "'manual_approval.approved_at' must be a non-empty string"),
+            ("blank evidence", {"decision": "APPROVED", "approved_by": "person", "approved_at": "2026-11-23T01:02:03Z", "evidence": " "}, "'manual_approval.evidence' must be a non-empty string"),
+        )
+        for name, approval, expected in cases:
+            with self.subTest(name=name):
+                doc = valid_evidence()
+                if approval is None:
+                    doc.pop("manual_approval")
+                else:
+                    doc["manual_approval"] = approval
+                self.assertIn(expected, validate(doc))
+
+    def test_invalid_manual_approval_timestamp_is_rejected(self):
+        for timestamp in (
+            "2026-11-23T01:02:03+00:00",
+            "2026-11-23T01:02Z",
+            "2026-02-30T01:02:03Z",
+            "2026-11-23T01:02:03z",
+        ):
+            with self.subTest(timestamp=timestamp):
+                doc = valid_evidence()
+                doc["manual_approval"]["approved_at"] = timestamp
+                self.assertIn(
+                    "'manual_approval.approved_at' must be an ISO 8601 UTC timestamp",
+                    validate(doc),
+                )
 
     def test_complete_waiver_is_valid(self):
         doc = valid_evidence()
