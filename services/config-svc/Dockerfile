@@ -17,6 +17,8 @@ RUN --mount=type=cache,target=/root/.gradle \
 
 FROM ${RUNTIME_IMAGE} AS runtime
 
+RUN apk add --no-cache zlib=1.4-r0 expat=2.11.0-r0
+
 RUN addgroup -S -g 10001 sumak \
     && adduser -S -D -H -u 10001 -G sumak sumak
 

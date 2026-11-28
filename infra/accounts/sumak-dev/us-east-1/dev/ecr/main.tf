@@ -24,3 +24,15 @@ module "identity_ecr" {
     Project     = "SUMAK"
   }
 }
+
+module "config_ecr" {
+  source = "../../../../../modules/ecr-repository"
+
+  repository_name = "sumak/dev/config-svc"
+
+  tags = {
+    Artifact    = "config-svc"
+    Environment = "dev"
+    Project     = "SUMAK"
+  }
+}

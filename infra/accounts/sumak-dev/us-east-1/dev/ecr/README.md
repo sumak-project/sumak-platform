@@ -1,9 +1,10 @@
-# SCRUM-38 — DEV ECR repositories
+# DEV ECR repositories
 
-This stack manages the same-account DEV ECR repositories for buildable Sprint
-1 artifacts. Its current reviewed scope is only:
+This stack manages same-account DEV ECR repositories for approved buildable
+artifacts. The reviewed DEV scope currently includes:
 
 - `sumak/dev/identity-svc`
+- `sumak/dev/config-svc` (added and exercised for SCRUM-142)
 
 Other Gradle modules and application directories remain placeholders and must
 not receive repositories until a later ticket establishes a buildable artifact
@@ -43,6 +44,9 @@ After an approved apply, record:
 3. Pull and digest verification using the approved read identity.
 4. A container recovery check from that digest.
 
-Until those operations are executed, AWS provisioning and push/pull/recovery
-evidence remain `NOT_RUN`; configuration or screenshots alone are not runtime
-evidence.
+SCRUM-142's dated execution evidence, including the exact digest, scan results,
+checks, limitations, and follow-ups, is in
+[`infra/evidence/SCRUM-142-ecr-digest-validation.md`](../../../../../evidence/SCRUM-142-ecr-digest-validation.md).
+That evidence applies only to the recorded DEV resource and identities; it is
+not authorization or validation for QA/PROD, cross-account access, or a
+separate LabRole read path.
