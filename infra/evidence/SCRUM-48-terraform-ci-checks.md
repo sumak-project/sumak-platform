@@ -46,7 +46,7 @@ account access process; never replace it with long-lived credentials.
 |---|---|
 | `terraform fmt -check -recursive infra` | `PASS` |
 | Backend-free initialization and validation of all 8 account roots | `PASS`; `hashicorp/aws` 6.74.0 |
-| Trivy security/policy scan | `NOT_RUN`; CI execution required |
+| Trivy security/policy scan | Initial CI run `FAIL`; narrow reviewed exceptions added for the intentional public ALB, public-ingress subnets, and EKS >=1.28 default envelope encryption; rerun pending |
 | STS identity and account match | `NOT_RUN`; requires temporary CI credentials |
 | Reviewed Terraform plans | `BLOCKED_PERMISSIONS` locally; no temporary session was supplied |
 | Workflow YAML parse | `PASS` |

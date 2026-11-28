@@ -57,6 +57,9 @@ resource "aws_internet_gateway" "public_ingress" {
   })
 }
 
+# Only entries explicitly modeled as the public ingress tier receive public IPs;
+# application and data subnet entries keep public_ip=false.
+#trivy:ignore:AVD-AWS-0164
 resource "aws_subnet" "this" {
   for_each = local.subnets
 

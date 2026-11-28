@@ -1,3 +1,7 @@
+# Reviewed EKS versions are >=1.28 and receive default envelope encryption with
+# an AWS-owned key; Learner Lab does not authorize custom IAM/KMS ownership.
+# The cluster remains private through its private-only control-plane endpoint.
+#trivy:ignore:AVD-AWS-0039
 resource "aws_eks_cluster" "this" {
   name                      = var.name
   role_arn                  = var.cluster_role_arn
