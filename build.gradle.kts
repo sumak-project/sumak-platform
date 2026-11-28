@@ -10,4 +10,8 @@ allprojects {
 
 subprojects {
     apply(plugin = "sumak.java-conventions")
+
+    rootProject.tasks.named("check") {
+        dependsOn(tasks.named("check"))
+    }
 }
