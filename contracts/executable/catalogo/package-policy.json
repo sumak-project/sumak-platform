@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "baseline": "v1",
+  "approval": "APPROVED_POLICY_WITH_PENDING_OPERATIONS",
+  "protocols": {
+    "clients": "GRAPHQL",
+    "internalSync": "GRPC",
+    "factsReplay": "KAFKA",
+    "work": "RABBITMQ",
+    "notifications": "WSS",
+    "http": "AUTHORIZED_WEBHOOKS_AND_TECHNICAL_ONLY"
+  },
+  "compatibility": {
+    "supportedVersions": ["N", "N-1"],
+    "baselineRefresh": "MANUAL_REVIEW_ONLY"
+  },
+  "pendingPolicy": {
+    "generateExecutableContract": false,
+    "result": "PENDING"
+  }
+}

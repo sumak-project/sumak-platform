@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "baseline": "v1",
+  "approvedMatrixSha256": "937b7ff6cc59140457d931a12422097f769ed7b3a6e8eea9a60845b423c8b061",
+  "contracts": {},
+  "note": "Initial reviewed policy baseline. Pending rows are never generated. Update only through explicit versioning review."
+}
